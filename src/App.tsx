@@ -1,10 +1,10 @@
-import { useState } from "react";
-import { bulkSetStatus, listAssets } from "@/api/client";
+import { useState, useRef, useEffect } from "react";
+import { useInfiniteQuery, useQueryClient,} from "@tanstack/react-query";
 import { AssetDetail } from "@/features/assets/AssetDetail";
 import { AssetGrid } from "@/features/assets/AssetGrid";
+import { listAssets, bulkSetStatus } from "@/api/client";
 import { statusLabel } from "@/lib/format";
-import type { Asset, AssetStatus, AssetQuery, AssetKind } from "@/lib/types";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Asset, AssetKind, AssetQuery, AssetStatus } from "@/lib/types";
 import { useDebounce } from "./hooks/useDebounce";
 
 const STATUSES: AssetStatus[] = ["draft", "in_review", "approved", "archived"];
@@ -17,20 +17,20 @@ const SORTS: Array<{ value: NonNullable<AssetQuery["sort"]>; label: string }> =
   ];
 const KINDS: AssetKind[] = ["image", "video", "document"];
 
-export function App() {
+export function App() { 
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<AssetStatus[]>([]);
   const [sort, setSort] =
-    useState<NonNullable<AssetQuery["sort"]>>("updatedAt:desc");
+  useState<NonNullable<AssetQuery["sort"]>>("updatedAt:desc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [kind, setKind] = useState<AssetKind[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const queryClient = useQueryClient();
-  const debouncedSearch = useDebounce(q, 500);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const debouncedSearch = useDebounce(q, 1000);
 
-  // Used debounced here for the searching.
   const query: AssetQuery = {
     q: debouncedSearch,
     status,
@@ -40,14 +40,34 @@ export function App() {
     limit: 24,
   };
 
-  const { data, isLoading, isFetching, isError, error } = useQuery({
+  const { data, isLoading, isFetching, isError, error, isFetchingNextPage,
+    hasNextPage, fetchNextPage } = useInfiniteQuery({
     queryKey: ["assets", query],
-    queryFn: ({ signal }) => listAssets(query, signal),
+    queryFn: ({ pageParam, signal }) =>
+      listAssets({ ...query, cursor: pageParam }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     staleTime: 15_000,
   });
 
-  const items = data?.items ?? [];
-  const total = data?.total ?? 0;
+  const items = data?.pages.flatMap((page) => page?.items) ?? [];
+  const total = data?.pages[0]?.total ?? 0;
+
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+    const handleInfiniteScroll = () => {
+      if (isFetchingNextPage || !hasNextPage) return;
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+      if (scrollTop + clientHeight >= scrollHeight - 20) {
+        fetchNextPage();
+      }
+    };
+    scrollContainer.addEventListener("scroll", handleInfiniteScroll);
+    return () => {
+      scrollContainer.removeEventListener("scroll", handleInfiniteScroll);
+    };
+  }, [isFetchingNextPage, hasNextPage, fetchNextPage]);
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
@@ -156,6 +176,7 @@ export function App() {
             {tag}
           </label>
         ))}
+
         <span className="muted">
           {isLoading || isFetching
             ? "Loading…"
@@ -166,11 +187,13 @@ export function App() {
       {selectedIds.size > 0 && (
         <div className="bulkbar">
           <span>{selectedIds.size} selected</span>
+
           {STATUSES.map((s) => (
             <button key={s} onClick={() => applyBulkStatus(s)}>
               Set {statusLabel(s).toLowerCase()}
             </button>
           ))}
+
           <button onClick={() => setSelectedIds(new Set())}>
             Clear selection
           </button>
@@ -178,6 +201,7 @@ export function App() {
       )}
 
       {notice && <p className="notice">{notice}</p>}
+
       {isError && (
         <p className="error">
           {error instanceof Error ? error.message : "Failed to load assets"}
@@ -191,7 +215,12 @@ export function App() {
           activeId={activeId}
           onToggleSelect={toggleSelect}
           onOpen={setActiveId}
+          scrollContainerRef={scrollContainerRef}
+          isFetchingNextPage={isFetchingNextPage}
+          hasNextPage = {hasNextPage}
+          fetchNextPage={fetchNextPage}
         />
+
         {activeId && (
           <AssetDetail
             id={activeId}
