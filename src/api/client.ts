@@ -47,8 +47,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export function listAssets(query: AssetQuery): Promise<AssetPage> {
-  return request<AssetPage>(`/api/assets?${toSearchParams(query)}`);
+export function listAssets( query: AssetQuery, signal?: AbortSignal): Promise<AssetPage> {
+  const queryString = toSearchParams(query);
+  const url = `/api/assets?${queryString}`;
+
+  return request<AssetPage>(url, { signal });
 }
 
 export function getAsset(id: string): Promise<Asset> {

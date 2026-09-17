@@ -39,13 +39,9 @@ The most time was spent understanding the existing code and API constraints befo
 | 2 | Bulk operation does not account for partial per-item failures | Bulk status handling | Fixed — applied, failed, and individual results are handled |
 | 3 | Card information was hidden  | styles.css | Fixed- Remove overflow: hidden property |
 | 4 | Retryable conflict response is present in the API contract   | Bulk status handling   | Left intentionally — the API documents it as retryable, but automatic retry was not required for this task |
-| 2 |  |  | |
-| 2 |  |  | |
-| 2 |  |  | |
-| 2 |  |  | |
-| 2 |  |  | |
-| 2 |  |  | |
-| 2 |  |  | |
+| 5 | Search can fire a request for every keystroke | App.tsx | Fixed — Implemented debounced |
+| 6 | Older search requests can remain in flight after the query changes | Asset API / App.tsx | Fixed — TanStack Query's signal is passed to fetch so obsolete requests can be aborted using signal. |
+| 7 | Filter/sort state was not part of the API query | App.tsx | Fixed — query includes search, status, kind, tag and sort state where those controls are available |
 
 
 ---

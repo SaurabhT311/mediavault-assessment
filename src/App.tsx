@@ -1,50 +1,53 @@
-import { useState } from 'react';
-import { bulkSetStatus, listAssets } from '@/api/client';
-import { AssetDetail } from '@/features/assets/AssetDetail';
-import { AssetGrid } from '@/features/assets/AssetGrid';
-import { statusLabel } from '@/lib/format';
-import type { Asset, AssetStatus, AssetQuery } from '@/lib/types';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from "react";
+import { bulkSetStatus, listAssets } from "@/api/client";
+import { AssetDetail } from "@/features/assets/AssetDetail";
+import { AssetGrid } from "@/features/assets/AssetGrid";
+import { statusLabel } from "@/lib/format";
+import type { Asset, AssetStatus, AssetQuery, AssetKind } from "@/lib/types";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useDebounce } from "./hooks/useDebounce";
 
-const STATUSES: AssetStatus[] = ['draft', 'in_review', 'approved', 'archived'];
-const SORTS: Array<{ value: NonNullable<AssetQuery['sort']>; label: string }> = [
-  { value: 'updatedAt:desc', label: 'Recently updated' },
-  { value: 'name:asc', label: 'Name A–Z' },
-  { value: 'sizeBytes:desc', label: 'Largest first' },
-  { value: 'createdAt:desc', label: 'Newest' },
-];
+const STATUSES: AssetStatus[] = ["draft", "in_review", "approved", "archived"];
+const SORTS: Array<{ value: NonNullable<AssetQuery["sort"]>; label: string }> =
+  [
+    { value: "updatedAt:desc", label: "Recently updated" },
+    { value: "name:asc", label: "Name A–Z" },
+    { value: "sizeBytes:desc", label: "Largest first" },
+    { value: "createdAt:desc", label: "Newest" },
+  ];
+const KINDS: AssetKind[] = ["image", "video", "document"];
 
 export function App() {
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState("");
   const [status, setStatus] = useState<AssetStatus[]>([]);
-  const [sort, setSort] = useState<NonNullable<AssetQuery['sort']>>('updatedAt:desc');
+  const [sort, setSort] =
+    useState<NonNullable<AssetQuery["sort"]>>("updatedAt:desc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [kind, setKind] = useState<AssetKind[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
   const queryClient = useQueryClient();
+  const debouncedSearch = useDebounce(q, 500);
 
-  // Every keystroke sends a request. Nothing is debounced or cancelled.
+  // Used debounced here for the searching.
   const query: AssetQuery = {
-    q,
+    q: debouncedSearch,
     status,
+    kind,
+    tags,
     sort,
     limit: 24,
   };
 
-  const {
-  data,
-  isLoading,
-  isFetching,
-  isError,
-  error,
-} = useQuery({
-  queryKey: ['assets', query],
-  queryFn: () => listAssets(query),
-  staleTime: 15_000,
-});
+  const { data, isLoading, isFetching, isError, error } = useQuery({
+    queryKey: ["assets", query],
+    queryFn: ({ signal }) => listAssets(query, signal),
+    staleTime: 15_000,
+  });
 
-const items = data?.items ?? [];
-const total = data?.total ?? 0;
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
@@ -55,7 +58,7 @@ const total = data?.total ?? 0;
     });
   }
 
-   async function applyBulkStatus(next: AssetStatus) {
+  async function applyBulkStatus(next: AssetStatus) {
     const ids = [...selectedIds];
 
     if (ids.length === 0) return;
@@ -94,7 +97,10 @@ const total = data?.total ?? 0;
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as typeof sort)}
+        >
           {SORTS.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -118,8 +124,42 @@ const total = data?.total ?? 0;
             {statusLabel(s)}
           </label>
         ))}
+
+        {KINDS.map((assetKind) => (
+          <label key={assetKind}>
+            <input
+              type="checkbox"
+              checked={kind.includes(assetKind)}
+              onChange={(e) =>
+                setKind((prev) =>
+                  e.target.checked ? [...prev, assetKind] : prev.filter((kind) => kind !== assetKind),
+                )
+              }
+            />
+
+            {assetKind}
+          </label>
+        ))}
+
+        {/* Tag */}
+        {tags.map((tag) => (
+          <label key={tag}>
+            <input
+              type="checkbox"
+              checked={tags.includes(tag)}
+              onChange={(e) =>
+                setTags((prev) =>
+                  e.target.checked ? [...prev, tag] : prev.filter((x) => x !== tag),
+                )
+              }
+            />
+            {tag}
+          </label>
+        ))}
         <span className="muted">
-          {isLoading || isFetching ? 'Loading…' : `${items.length} of ${total.toLocaleString()} shown`}
+          {isLoading || isFetching
+            ? "Loading…"
+            : `${items.length} of ${total.toLocaleString()} shown`}
         </span>
       </div>
 
@@ -131,7 +171,9 @@ const total = data?.total ?? 0;
               Set {statusLabel(s).toLowerCase()}
             </button>
           ))}
-          <button onClick={() => setSelectedIds(new Set())}>Clear selection</button>
+          <button onClick={() => setSelectedIds(new Set())}>
+            Clear selection
+          </button>
         </div>
       )}
 
@@ -151,7 +193,11 @@ const total = data?.total ?? 0;
           onOpen={setActiveId}
         />
         {activeId && (
-          <AssetDetail id={activeId} onClose={() => setActiveId(null)} onSaved={handleSaved} />
+          <AssetDetail
+            id={activeId}
+            onClose={() => setActiveId(null)}
+            onSaved={handleSaved}
+          />
         )}
       </main>
     </div>
