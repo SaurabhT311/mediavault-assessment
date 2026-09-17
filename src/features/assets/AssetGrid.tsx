@@ -1,9 +1,8 @@
-import { thumbnailUrl } from "@/api/client";
 import ListLoader from "@/commonComponent/ListLoader/ListLoader";
-import { formatBytes, formatDate, statusLabel } from "@/lib/format";
 import type { Asset } from "@/lib/types";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { AssetCard } from "./AssetCard";
 
 interface Props {
   assets: Asset[];
@@ -32,8 +31,7 @@ export function AssetGrid({
 }: Props) {
   const [columnCount, setColumnCount] = useState(1);
 
-
- useEffect(() => {
+  useEffect(() => {
     const grid = scrollContainerRef.current;
     if (!grid) return;
 
@@ -44,9 +42,7 @@ export function AssetGrid({
       const minCardWidth = 250;
       const columns = Math.max(
         1,
-        Math.floor(
-          (grid.clientWidth + gap) / (minCardWidth + gap)
-        )
+        Math.floor((grid.clientWidth + gap) / (minCardWidth + gap)),
       );
 
       setColumnCount(columns);
@@ -87,9 +83,9 @@ export function AssetGrid({
       </div>
     );
   }
- const virtualRows = rowVirtualizer.getVirtualItems();
+  const virtualRows = rowVirtualizer.getVirtualItems();
 
- return (
+  return (
     <div className="grid" ref={scrollContainerRef}>
       <div
         style={{
@@ -100,7 +96,7 @@ export function AssetGrid({
       >
         {virtualRows.map((virtualRow) => {
           const row = rows[virtualRow.index];
-          if(!row) return null;
+          if (!row) return null;
 
           return (
             <div
@@ -116,59 +112,26 @@ export function AssetGrid({
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
-              {row.map((asset) => {
-                const isSelected = selectedIds.has(asset.id);
-                const isActive = activeId === asset.id;
-
-                return (
-                  <div
-                    key={asset.id}
-                    className={[
-                      "card",
-                      isSelected && "card--selected",
-                      isActive && "card--active",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    onClick={() => onOpen(asset.id)}
-                  >
-                    <img
-                      className="card__thumb"
-                      src={thumbnailUrl(asset.id)}
-                      alt=""
-                    />
-
-                    <div className="card__body">
-                      <p className="card__name">{asset.name}</p>
-
-                      <p className="muted">
-                        {asset.kind} · {formatBytes(asset.sizeBytes)} ·{" "}
-                        {formatDate(asset.updatedAt)}
-                      </p>
-
-                      <span className={`pill pill--${asset.status}`}>
-                        {statusLabel(asset.status)}
-                      </span>
-                    </div>
-
-                    <input
-                      type="checkbox"
-                      className="card__check"
-                      checked={isSelected}
-                      onClick={(event) => event.stopPropagation()}
-                      onChange={() => onToggleSelect(asset.id)}
-                    />
-                  </div>
-                );
-              })}
+              {row.map((asset) => (
+                <AssetCard
+                  key={asset.id}
+                  asset={asset}
+                  isSelected={selectedIds.has(asset.id)}
+                  isActive={activeId === asset.id}
+                  onToggleSelect={onToggleSelect}
+                  onOpen={onOpen}
+                />
+              ))}
             </div>
           );
         })}
       </div>
 
-      {isFetchingNextPage && <div style={{ minHeight: "120px", grid: "1 / -1" }}>
-           <ListLoader />
-         </div>}
+      {isFetchingNextPage && (
+        <div style={{ minHeight: "120px", grid: "1 / -1" }}>
+          <ListLoader />
+        </div>
+      )}
     </div>
   );
 }
