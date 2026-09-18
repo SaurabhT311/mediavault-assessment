@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { lazy, Suspense } from "react";
 import { AssetGrid } from "@/features/assets/AssetGrid";
-import type { Asset, AssetStatus } from "@/lib/types";
+import type { Asset, AssetsQueryData, AssetStatus, BulkResult } from "@/lib/types";
 import { useAssets } from "./hooks/useAssets";
 import { useAssetFilters } from "./hooks/useAssetFilters";
 import { AssetFilters } from "./features/assets/AssetFilters";
@@ -48,31 +48,179 @@ export function App() {
     };
   }, [isFetchingNextPage, hasNextPage, fetchNextPage]);
 
-  const toggleSelect = useCallback((id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
+ const addSelectedRange = ( selectedIds: Set<string>, assets: Asset[], startIndex: number,
+  endIndex: number,
+) => {
+  const rangeStart = Math.min(startIndex, endIndex);
+  const rangeEnd = Math.max(startIndex, endIndex);
 
-  async function applyBulkStatus(next: AssetStatus) {
-    const ids = [...selectedIds];
-    if (ids.length === 0) return;
-    setNotice(null);
-    try {
-      // Keeping the existing API call/function as-is for now.
-      const result = await bulkSetStatus(ids, next);
-      setNotice(`${result.applied} updated, ${result.failed} failed.`);
-      setSelectedIds(new Set());
-      await queryClient.invalidateQueries({
-        queryKey: ["assets"],
-      });
-    } catch (err) {
-      setNotice(err instanceof Error ? err.message : "Bulk update failed");
-    }
+  for (let index = rangeStart; index <= rangeEnd; index++) {
+    selectedIds.add(assets[index]!.id);
   }
+}
+
+  const handleCheckboxSelect = useCallback((id: string, shiftKey: boolean) => {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        const startIndex = items.findIndex(
+          (asset) => asset?.id === lastSelectedId,
+        );
+        const endIndex = items.findIndex((asset) => asset?.id === id);
+
+        const isRangeSelection =
+          shiftKey && lastSelectedId && startIndex !== -1 && endIndex !== -1;
+
+        if (isRangeSelection) {
+          addSelectedRange(next, items, startIndex, endIndex);
+          return next;
+        }
+
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        return next;
+      });
+      setLastSelectedId(id);
+    },
+    [items, lastSelectedId],
+  );
+
+// Updates selected assets optimistically and removes assets that no longer match the active filter.
+const applyOptimisticStatus = ( data: AssetsQueryData, selectedIds: Set<string>, nextStatus: AssetStatus,
+  statusFilter: AssetStatus[] ) => {
+  return {
+    ...data,
+    pages: data?.pages?.map((page) => ({
+      ...page,
+      items: page?.items
+        .map((asset) =>
+          selectedIds.has(asset?.id)
+            ? { ...asset, status: nextStatus }
+            : asset,
+        )
+        .filter((asset) => {
+          if (statusFilter?.length === 0) return true;
+          return statusFilter.includes(asset?.status);
+        }),
+    })),
+  };
+}
+
+// Reconciles the optimistic state with the server response and rolls back failed assets.
+const reconcileBulkStatus = ( data: AssetsQueryData, results: BulkResult["results"], previousAssets: Map<string, Asset>,
+  statusFilter: AssetStatus[] ) => {
+  const resultById = new Map(
+    results.map((result) => [result?.id, result]),
+  );
+
+  return {
+    ...data,
+    pages: data?.pages?.map((page) => ({
+      ...page,
+      items: page?.items
+        .map((asset) => {
+          const result = resultById.get(asset.id);
+          if (!result) return asset;
+          if (result?.ok) {
+            return result?.asset;
+          }
+          return previousAssets.get(asset?.id) ?? asset;
+        })
+        .filter((asset) => {
+          if (statusFilter?.length === 0) return true;
+
+          return statusFilter.includes(asset?.status);
+        }),
+    })),
+  };
+}
+
+// Restores all assets affected by a failed bulk request.
+const rollbackBulkStatus = ( data: AssetsQueryData, previousAssets: Map<string, Asset>,
+  statusFilter: AssetStatus[] ) => {
+  return {
+    ...data,
+    pages: data?.pages?.map((page) => ({
+      ...page,
+      items: page?.items
+        .map((asset) => previousAssets.get(asset?.id) ?? asset)
+        .filter((asset) => {
+          if (statusFilter?.length === 0) return true;
+
+          return statusFilter?.includes(asset.status);
+        }),
+    })),
+  };
+}
+
+const applyBulkStatus = async(next: AssetStatus) => {
+  const ids = [...selectedIds];
+  if (ids?.length === 0) return;
+  setNotice(null);
+
+  // Save the current state so failed updates can be rolled back.
+  const previousAssets = new Map(
+    items
+      .filter((asset) => selectedIds.has(asset?.id))
+      .map((asset) => [asset?.id, asset]),
+  );
+
+  // Optimistically update the grid before waiting for the API.
+  queryClient.setQueryData<AssetsQueryData>(["assets", query], (oldData) => {
+      if (!oldData) return oldData;
+
+      return applyOptimisticStatus(oldData, selectedIds, next, query?.status ?? []);
+    },
+  );
+
+  try {
+    // Send the bulk status update to the server.
+    const result = await bulkSetStatus(ids, next);
+
+    // Reconcile successful updates and roll back only failed assets.
+    queryClient.setQueryData<AssetsQueryData>(["assets", query], (oldData) => {
+        if (!oldData) return oldData;
+
+        return reconcileBulkStatus(oldData, result?.results, previousAssets, query?.status ?? []);
+      },
+    );
+
+    const failedResults = result.results.filter(
+      (result) => !result.ok,
+    );
+
+    if (failedResults?.length > 0) {
+      setNotice(`${result?.applied} updated, ${failedResults?.length} failed.`);
+    } else {
+      setNotice(`${result?.applied} updated.`);
+    }
+
+    setSelectedIds(new Set());
+    setLastSelectedId(null);
+  } catch (err) {
+    // Roll back all optimistic changes when the request itself fails.
+    queryClient.setQueryData<AssetsQueryData>(
+      ["assets", query],
+      (oldData) => {
+        if (!oldData) return oldData;
+
+        return rollbackBulkStatus(
+          oldData,
+          previousAssets,
+          query.status ?? [],
+        );
+      },
+    );
+
+    setNotice(
+      err instanceof Error
+        ? err.message
+        : "Bulk update failed",
+    );
+  }
+}
 
   function handleSaved(_asset: Asset) {
     queryClient.invalidateQueries({
@@ -133,7 +281,7 @@ export function App() {
           assets={items}
           selectedIds={selectedIds}
           activeId={activeId}
-          onToggleSelect={toggleSelect}
+          onToggleSelect={handleCheckboxSelect}
           onOpen={setActiveId}
           scrollContainerRef={scrollContainerRef}
           isFetchingNextPage={isFetchingNextPage}

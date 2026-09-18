@@ -50,3 +50,8 @@ export interface BulkResult {
   applied: number;
   failed: number;
 }
+
+export type AssetsQueryData = {
+  pages: AssetPage[];
+  pageParams: (string | undefined)[];
+};
