@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { getAsset, thumbnailUrl, updateAsset } from '@/api/client';
 import { formatBytes, formatDate, formatDuration, statusLabel } from '@/lib/format';
 import type { Asset, AssetStatus } from '@/lib/types';
-
-const STATUSES: AssetStatus[] = ['draft', 'in_review', 'approved', 'archived'];
+import { STATUSES } from '@/constants/assets'; 
 
 interface Props {
   id: string;

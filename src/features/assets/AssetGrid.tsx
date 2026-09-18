@@ -1,7 +1,7 @@
 import ListLoader from "@/commonComponent/ListLoader/ListLoader";
 import type { Asset } from "@/lib/types";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { RefObject, useEffect, useMemo, useState } from "react";
 import { AssetCard } from "./AssetCard";
 
 interface Props {
@@ -34,17 +34,13 @@ export function AssetGrid({
   useEffect(() => {
     const grid = scrollContainerRef.current;
     if (!grid) return;
-
     const updateColumnCount = () => {
       const { columnGap } = getComputedStyle(grid);
       const gap = parseFloat(columnGap) || 12;
-
       const minCardWidth = 250;
-      const columns = Math.max(
-        1,
+      const columns = Math.max(1,
         Math.floor((grid.clientWidth + gap) / (minCardWidth + gap)),
       );
-
       setColumnCount(columns);
     };
     updateColumnCount();
@@ -58,11 +54,9 @@ export function AssetGrid({
 
   const rows = useMemo(() => {
     const result: Asset[][] = [];
-
     for (let i = 0; i < assets.length; i += columnCount) {
       result.push(assets.slice(i, i + columnCount));
     }
-
     return result;
   }, [assets, columnCount]);
 

@@ -1,57 +1,27 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useInfiniteQuery, useQueryClient,} from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { AssetDetail } from "@/features/assets/AssetDetail";
 import { AssetGrid } from "@/features/assets/AssetGrid";
-import { listAssets, bulkSetStatus } from "@/api/client";
-import { statusLabel } from "@/lib/format";
-import type { Asset, AssetKind, AssetQuery, AssetStatus } from "@/lib/types";
-import { useDebounce } from "./hooks/useDebounce";
+import type { Asset, AssetStatus } from "@/lib/types";
+import { useAssets } from "./hooks/useAssets";
+import { useAssetFilters } from "./hooks/useAssetFilters";
+import { AssetFilters } from "./features/assets/AssetFilters";
+import { BulkAssetSelection } from "./features/assets/BulkAssetSelection";
+import { SORTS } from "./constants/assets";
+import { bulkSetStatus } from "./api/client";
 
-const STATUSES: AssetStatus[] = ["draft", "in_review", "approved", "archived"];
-const SORTS: Array<{ value: NonNullable<AssetQuery["sort"]>; label: string }> =
-  [
-    { value: "updatedAt:desc", label: "Recently updated" },
-    { value: "name:asc", label: "Name A–Z" },
-    { value: "sizeBytes:desc", label: "Largest first" },
-    { value: "createdAt:desc", label: "Newest" },
-  ];
-const KINDS: AssetKind[] = ["image", "video", "document"];
-
-export function App() { 
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState<AssetStatus[]>([]);
-  const [sort, setSort] =
-  useState<NonNullable<AssetQuery["sort"]>>("updatedAt:desc");
+export function App() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [kind, setKind] = useState<AssetKind[]>([]);
-  const [tags, setTags] = useState<string[]>([]);
   const queryClient = useQueryClient();
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const debouncedSearch = useDebounce(q, 1000);
 
-  const query: AssetQuery = {
-    q: debouncedSearch,
-    status,
-    kind,
-    tags,
-    sort,
-    limit: 24,
-  };
+  const { q, setQ, status, kind, tags, sort, setSort, toggleStatus, toggleKind,
+    toggleTag, query } = useAssetFilters();
 
-  const { data, isLoading, isFetching, isError, error, isFetchingNextPage,
-    hasNextPage, fetchNextPage } = useInfiniteQuery({
-    queryKey: ["assets", query],
-    queryFn: ({ pageParam, signal }) =>
-      listAssets({ ...query, cursor: pageParam }, signal),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    staleTime: 15_000,
-  });
-
-  const items = data?.pages.flatMap((page) => page?.items) ?? [];
-  const total = data?.pages[0]?.total ?? 0;
+  const { items, total, isLoading, isFetching, isError, error, isFetchingNextPage,
+    hasNextPage, fetchNextPage } = useAssets(query);
 
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
@@ -76,22 +46,17 @@ export function App() {
       else next.add(id);
       return next;
     });
-  }, [])
+  }, []);
 
   async function applyBulkStatus(next: AssetStatus) {
     const ids = [...selectedIds];
-
     if (ids.length === 0) return;
-
     setNotice(null);
-
     try {
       // Keeping the existing API call/function as-is for now.
       const result = await bulkSetStatus(ids, next);
-
       setNotice(`${result.applied} updated, ${result.failed} failed.`);
       setSelectedIds(new Set());
-
       await queryClient.invalidateQueries({
         queryKey: ["assets"],
       });
@@ -129,76 +94,24 @@ export function App() {
         </select>
       </header>
 
-      <div className="filters">
-        {STATUSES.map((s) => (
-          <label key={s}>
-            <input
-              type="checkbox"
-              checked={status.includes(s)}
-              onChange={(e) =>
-                setStatus((prev) =>
-                  e.target.checked ? [...prev, s] : prev.filter((x) => x !== s),
-                )
-              }
-            />
-            {statusLabel(s)}
-          </label>
-        ))}
+      <AssetFilters
+        status={status}
+        kind={kind}
+        tags={tags}
+        shown={items.length}
+        total={total}
+        isLoading={isLoading}
+        isFetching={isFetching}
+        onStatusToggle={toggleStatus}
+        onKindToggle={toggleKind}
+        onTagToggle={toggleTag}
+      />
 
-        {KINDS.map((assetKind) => (
-          <label key={assetKind}>
-            <input
-              type="checkbox"
-              checked={kind.includes(assetKind)}
-              onChange={(e) =>
-                setKind((prev) =>
-                  e.target.checked ? [...prev, assetKind] : prev.filter((kind) => kind !== assetKind),
-                )
-              }
-            />
-
-            {assetKind}
-          </label>
-        ))}
-
-        {/* Tag */}
-        {tags.map((tag) => (
-          <label key={tag}>
-            <input
-              type="checkbox"
-              checked={tags.includes(tag)}
-              onChange={(e) =>
-                setTags((prev) =>
-                  e.target.checked ? [...prev, tag] : prev.filter((x) => x !== tag),
-                )
-              }
-            />
-            {tag}
-          </label>
-        ))}
-
-        <span className="muted">
-          {isLoading || isFetching
-            ? "Loading…"
-            : `${items.length} of ${total.toLocaleString()} shown`}
-        </span>
-      </div>
-
-      {selectedIds.size > 0 && (
-        <div className="bulkbar">
-          <span>{selectedIds.size} selected</span>
-
-          {STATUSES.map((s) => (
-            <button key={s} onClick={() => applyBulkStatus(s)}>
-              Set {statusLabel(s).toLowerCase()}
-            </button>
-          ))}
-
-          <button onClick={() => setSelectedIds(new Set())}>
-            Clear selection
-          </button>
-        </div>
-      )}
+      <BulkAssetSelection
+        selectedCount={selectedIds.size}
+        onStatusChange={applyBulkStatus}
+        onClear={() => setSelectedIds(new Set())}
+      />
 
       {notice && <p className="notice">{notice}</p>}
 
@@ -217,7 +130,7 @@ export function App() {
           onOpen={setActiveId}
           scrollContainerRef={scrollContainerRef}
           isFetchingNextPage={isFetchingNextPage}
-          hasNextPage = {hasNextPage}
+          hasNextPage={hasNextPage}
           fetchNextPage={fetchNextPage}
         />
 
