@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { AssetDetail } from "@/features/assets/AssetDetail";
+import { lazy, Suspense } from "react";
 import { AssetGrid } from "@/features/assets/AssetGrid";
 import type { Asset, AssetStatus } from "@/lib/types";
 import { useAssets } from "./hooks/useAssets";
@@ -10,15 +10,24 @@ import { BulkAssetSelection } from "./features/assets/BulkAssetSelection";
 import { SORTS } from "./constants/assets";
 import { bulkSetStatus } from "./api/client";
 
+const AssetDetail = lazy(() =>
+  import("@/features/assets/AssetDetail").then(
+    (module) => ({
+      default: module.AssetDetail,
+    }),
+  ),
+);
+
 export function App() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const { q, setQ, status, kind, tags, sort, setSort, toggleStatus, toggleKind,
-    toggleTag, query } = useAssetFilters();
+  const { q, setQ, status, kind, sort, setSort, toggleStatus, toggleKind,
+     query } = useAssetFilters();
 
   const { items, total, isLoading, isFetching, isError, error, isFetchingNextPage,
     hasNextPage, fetchNextPage } = useAssets(query);
@@ -97,14 +106,12 @@ export function App() {
       <AssetFilters
         status={status}
         kind={kind}
-        tags={tags}
         shown={items.length}
         total={total}
         isLoading={isLoading}
         isFetching={isFetching}
         onStatusToggle={toggleStatus}
         onKindToggle={toggleKind}
-        onTagToggle={toggleTag}
       />
 
       <BulkAssetSelection
@@ -135,11 +142,13 @@ export function App() {
         />
 
         {activeId && (
-          <AssetDetail
-            id={activeId}
-            onClose={() => setActiveId(null)}
-            onSaved={handleSaved}
-          />
+          <Suspense fallback={<p className="muted">Loading details…</p>}>
+            <AssetDetail
+              id={activeId}
+              onClose={() => setActiveId(null)}
+              onSaved={handleSaved}
+            />
+          </Suspense>
         )}
       </main>
     </div>

@@ -2,7 +2,16 @@ import ListLoader from "@/commonComponent/ListLoader/ListLoader";
 import type { Asset } from "@/lib/types";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { RefObject, useEffect, useMemo, useState } from "react";
-import { AssetCard } from "./AssetCard";
+import { lazy, Suspense } from "react";
+
+
+const AssetCard = lazy(() =>
+  import("./AssetCard").then(
+    (module) => ({
+      default: module.AssetCard,
+    }),
+  ),
+);
 
 interface Props {
   assets: Asset[];
@@ -80,7 +89,7 @@ export function AssetGrid({
   const virtualRows = rowVirtualizer.getVirtualItems();
 
   return (
-    <div className="grid" ref={scrollContainerRef}>
+    <div className={`grid ${selectedIds.size > 0 ? "grid-filter" : "grid-height"}`} ref={scrollContainerRef}>
       <div
         style={{
           position: "relative",
@@ -107,14 +116,16 @@ export function AssetGrid({
               }}
             >
               {row.map((asset) => (
-                <AssetCard
-                  key={asset.id}
-                  asset={asset}
-                  isSelected={selectedIds.has(asset.id)}
-                  isActive={activeId === asset.id}
-                  onToggleSelect={onToggleSelect}
-                  onOpen={onOpen}
-                />
+                <Suspense fallback={<p className="muted">Loading details…</p>}>
+                  <AssetCard
+                    key={asset.id}
+                    asset={asset}
+                    isSelected={selectedIds.has(asset.id)}
+                    isActive={activeId === asset.id}
+                    onToggleSelect={onToggleSelect}
+                    onOpen={onOpen}
+                  />
+                </Suspense>
               ))}
             </div>
           );

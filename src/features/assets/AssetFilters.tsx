@@ -25,18 +25,16 @@ function FilterCheckbox({ label, checked, onChange }:
 type AssetFiltersProps = {
   status: AssetStatus[];
   kind: AssetKind[];
-  tags: string[];
   shown: number;
   total: number;
   isLoading: boolean;
   isFetching: boolean;
   onStatusToggle: (value: AssetStatus) => void;
   onKindToggle: (value: AssetKind) => void;
-  onTagToggle: (value: string) => void;
 };
 
-export function AssetFilters({ status, kind, tags, shown, total, isLoading,
-  isFetching, onStatusToggle, onKindToggle, onTagToggle }: AssetFiltersProps) {
+export function AssetFilters({ status, kind, shown, total, isLoading,
+  isFetching, onStatusToggle, onKindToggle }: AssetFiltersProps) {
   return (
     <div className="filters">
       {STATUSES.map((value) => (
@@ -57,14 +55,6 @@ export function AssetFilters({ status, kind, tags, shown, total, isLoading,
         />
       ))}
 
-      {tags.map((tag) => (
-        <FilterCheckbox
-          key={tag}
-          label={tag}
-          checked={true}
-          onChange={() => onTagToggle(tag)}
-        />
-      ))}
 
       <span className="muted">
         {isLoading || isFetching
