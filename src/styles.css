@@ -136,7 +136,6 @@ input[type= "checkbox"]{
   margin: 0;
   padding: 8px 16px;
   font-size: 13px;
-  border-bottom: 1px solid var(--line);
 }
 .error {
   color: var(--danger);

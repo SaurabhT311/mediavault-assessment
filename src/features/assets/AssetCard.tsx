@@ -22,16 +22,40 @@ export const AssetCard = memo(function AssetCard({
 
   const showPlaceholder = !asset.hasThumbnail || thumbnailError;
 
+  const handleOpen = () => {
+    onOpen(asset.id);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleOpen();
+    }
+  };
+
   return (
-    <div className={["card", isSelected && "card--selected",
+    <article
+      className={[
+        "card",
+        isSelected && "card--selected",
         isActive && "card--active",
-      ].filter(Boolean).join(" ")}
-      onClick={() => onOpen(asset.id)}
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${asset.name}`}
+      aria-current={isActive ? "true" : undefined}
+      onClick={handleOpen}
+      onKeyDown={handleKeyDown}
     >
       <div className="card__thumb">
         {showPlaceholder ? (
-          <div className="card__thumb-placeholder">
-            <span>No preview</span>
+          <div
+            className="card__thumb-placeholder"
+            aria-label="No preview available"
+          >
+            <span aria-hidden="true">No preview</span>
           </div>
         ) : (
           <img
@@ -44,14 +68,17 @@ export const AssetCard = memo(function AssetCard({
       </div>
 
       <div className="card__body">
-        <p className="card__name">{asset.name}</p>
+        <h3 className="card__name">{asset.name}</h3>
 
         <p className="muted">
           {asset.kind} · {formatBytes(asset.sizeBytes)} ·{" "}
           {formatDate(asset.updatedAt)}
         </p>
 
-        <span className={`pill pill--${asset.status}`}>
+        <span
+          className={`pill pill--${asset.status}`}
+          aria-label={`Status: ${statusLabel(asset.status)}`}
+        >
           {statusLabel(asset.status)}
         </span>
       </div>
@@ -60,9 +87,10 @@ export const AssetCard = memo(function AssetCard({
         type="checkbox"
         className="card__check"
         checked={isSelected}
+        aria-label={`Select ${asset.name}`}
         onClick={(event) => event.stopPropagation()}
         onChange={() => onToggleSelect(asset.id)}
       />
-    </div>
+    </article>
   );
 });

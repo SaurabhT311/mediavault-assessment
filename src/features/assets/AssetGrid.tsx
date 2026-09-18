@@ -122,7 +122,8 @@ export function AssetGrid({
       </div>
 
       {isFetchingNextPage && (
-        <div style={{ minHeight: "120px", grid: "1 / -1" }}>
+        <div style={{ minHeight: "120px", grid: "1 / -1" }} role="loader"
+          aria-label="Loading more assets">
           <ListLoader />
         </div>
       )}
