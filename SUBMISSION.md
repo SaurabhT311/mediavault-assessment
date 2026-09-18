@@ -94,15 +94,15 @@ Fill in real measurements, not estimates. Say which machine and browser.
 
 What was the actual bottleneck, and how did you find it?
 
-The main rendering bottleneck was the asset card grid. Rendering the full loaded asset list means the amount of DOM and rendering work grows as more assets are loaded.
+-The main rendering bottleneck was the asset card grid. Rendering the full loaded asset list means the amount of DOM and rendering work grows as more assets are loaded.
 
-To address this, the asset grid was changed to use row-based virtualization with @tanstack/react-virtual. The virtualizer renders only the rows around the current viewport while maintaining the overall scrollable height. This keeps the rendered portion of the grid bounded by the viewport instead of rendering every loaded asset.
+-To address this, the asset grid was changed to use row-based virtualization with @tanstack/react-virtual. The virtualizer renders only the rows around the current viewport while maintaining the overall scrollable height. This keeps the rendered portion of the grid bounded by the viewport instead of rendering every loaded asset.
 
-The number of columns is calculated from the available grid width, so the implementation does not rely on a hardcoded number of cards per row. Card dimensions remain controlled by CSS.
+-The number of columns is calculated from the available grid width, so the implementation does not rely on a hardcoded number of cards per row. Card dimensions remain controlled by CSS.
 
-For the card layout, the Lighthouse performance score improved from 48 before the performance changes to 76 after the changes. This was measured using Lighthouse in the browser against the card-list page.
+-I also used React.memo at the AssetCard boundary and a stable useCallback for selection. Profiling confirmed that changing one selection no longer causes all visible cards to re-render which improved the performance from 48 to 86.
 
-The 48 → 86 result is a Lighthouse performance score comparison and is not being used as a substitute for the DOM-node, React re-render, long-task, or bundle-size measurements above.
+-The 48 → 86 result is a Lighthouse performance score comparison and is not being used as a substitute for the DOM-node, React re-render, long-task, or bundle-size measurements above.
 
 ---
 
@@ -118,7 +118,10 @@ The 48 → 86 result is a Lighthouse performance score comparison and is not bei
 
 Three or four sentences: what you were optimising for, and the decisions that
 follow from it. Then briefly:
-
+- Kept the existing overall MediaVault layout rather than introducing a new visual system
+- Separated the filter UI into its own component without moving unrelated header/search logic.
+- Kept bulk actions in a dedicated BulkAssetSelection so selection-related actions are visually separated from   filtering.
+- Used existing CSS for card dimensions rather than introducing JavaScript-driven width/height calculations.
 - **Visual system.** Your colour, spacing and type decisions, and where they live.
 - **Status treatment.** How the four statuses read as a progression, and how they
   stay distinguishable without relying on colour.
@@ -136,6 +139,8 @@ Screenshots in the repo are welcome — link them here.
 What you deliberately did not do, and what you would do with another day.
 
 - I implemented the API's 50-ID constraint and partial-success handling. I didn't add a retry layer because the existing request abstraction doesn't expose the response headers needed for Retry-After, and I wanted to avoid introducing a larger networking abstraction for this task.
+- I did not introduce Redux Toolkit or Zustand because the current state can be handled cleanly with TanStack Query and React state.
+- I did not add optimistic bulk updates because partial per-item failures make rollback more complicated and the server response is the source of truth.
 
 ## Critique of the API
 
@@ -143,5 +148,10 @@ What you would change about the backend contract, and what it forced you to do i
 the client that you would rather not have.
 
 ## Anything you would like us to look at
+The main areas I would recommend reviewing are the virtualization approach and the card-level rendering optimization.
+
+The grid uses dynamic row-based virtualization while leaving card dimensions entirely to CSS. I also used React DevTools Profiler to verify that selection changes only re-render the affected card rather than the complete visible grid.
+
+I intentionally kept the overall architecture simple: TanStack Query handles server state, React handles local UI state, and feature-specific components/hooks handle the asset UI and data flow without introducing another global state library
 
 Code you are proud of, or a decision you are unsure about and want to discuss.
