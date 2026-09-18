@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { thumbnailUrl } from "@/api/client";
 import { formatBytes, formatDate, statusLabel } from "@/lib/format";
 import { Asset } from "@/lib/types";
@@ -18,23 +18,30 @@ export const AssetCard = memo(function AssetCard({
   onToggleSelect,
   onOpen,
 }: AssetCardProps) {
+  const [thumbnailError, setThumbnailError] = useState(false);
+
+  const showPlaceholder = !asset.hasThumbnail || thumbnailError;
 
   return (
-    <div
-      className={[
-        "card",
-        isSelected && "card--selected",
+    <div className={["card", isSelected && "card--selected",
         isActive && "card--active",
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      ].filter(Boolean).join(" ")}
       onClick={() => onOpen(asset.id)}
     >
-      <img
-        className="card__thumb"
-        src={thumbnailUrl(asset.id)}
-        alt=""
-      />
+      <div className="card__thumb">
+        {showPlaceholder ? (
+          <div className="card__thumb-placeholder">
+            <span>No preview</span>
+          </div>
+        ) : (
+          <img
+            src={thumbnailUrl(asset.id)}
+            alt=""
+            loading="lazy"
+            onError={() => setThumbnailError(true)}
+          />
+        )}
+      </div>
 
       <div className="card__body">
         <p className="card__name">{asset.name}</p>
