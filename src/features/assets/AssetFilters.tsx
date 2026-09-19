@@ -46,7 +46,7 @@ export function AssetFilters({ status, kind, shown, total, isLoading,
           onChange={() => onStatusToggle(value)}
         />
       ))}
-
+  <span className="divider"></span>
       {KINDS.map((value) => (
         <FilterCheckbox
           key={value}

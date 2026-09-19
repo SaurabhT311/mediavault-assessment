@@ -101,6 +101,12 @@ six of these is about right.
 - When a status filter is active, the optimistic update also reapplies that filter. For example, changing a Draft asset to In Review immediately removes it from the Draft result rather than waiting for a refetch.
 
 **Retry and backoff policy**
+- The API identifies conflict failures separately from permanent failures such as legal_hold and not_found. I treat only conflict as retryable.
+
+- I considered automatically retrying those conflicts with exponential backoff. However, the API response does not provide the target status required to reconstruct the original operation independently. Implementing this entirely on the client would require retaining additional context from the original bulk operation and matching it against the failed asset IDs.
+
+For this take-home implementation, I chose not to introduce that additional client-side state and complexity. Instead, retryable conflicts are identified explicitly in the failure breakdown, while permanent failures are left unchanged.
+In a production API, I would prefer the backend to expose sufficient operation context (for example, the requested target status or a retryable operation identifier) so the client can safely retry failed assets. With that contract, exponential backoff could be applied only to retryable conflicts, with a small bounded number of attempts.
 
 **State placement and URL sync**
 
@@ -146,12 +152,29 @@ follow from it. Then briefly:
 - Kept the existing overall MediaVault layout rather than introducing a new visual system
 - Separated the filter UI into its own component without moving unrelated header/search logic.
 - Kept bulk actions in a dedicated BulkAssetSelection so selection-related actions are visually separated from   filtering.
-- Used existing CSS for card dimensions rather than introducing JavaScript-driven width/height calculations.
-- **Visual system.** Your colour, spacing and type decisions, and where they live.
-- **Status treatment.** How the four statuses read as a progression, and how they
-  stay distinguishable without relying on colour.
-- **States.** What you did with loading, empty, error, offline and partial
-  failure.
+- Kept asset rendering in AssetCard and AssetGrid, with the parent retaining the selection and interaction logic.
+- Kept the asset details experience in a dedicated AssetDetails component rather than mixing panel markup into the grid.
+- Used existing CSS-driven card dimensions and responsive grid behaviour rather than introducing JavaScript-driven width/height calculations
+- Split the original stylesheet into component-level SCSS files (AssetCard.scss, AssetGrid.scss, AssetFilters.scss, BulkAssetSelection.scss, AssetDetails.scss, and App.scss) while preserving the existing visual behaviour.
+- Used SCSS nesting and component-specific class structures to keep styles easier to locate and maintain instead of relying on a large collection of global selectors.
+
+- **Visual system.** 
+- Kept the existing MediaVault visual language, including the existing blue accent, neutral backgrounds, borders, spacing, and typography rather than introducing a separate design system.
+- Kept repeated visual values consistent across filters, cards, bulk actions, details, and status indicators.
+- Kept interaction styling such as hover, selected, focus, disabled, and active states visually distinct without changing the overall application style.
+
+- **Status treatment.** 
+- Treated `draft`, `in review`, `approved`, and `archived` as a clear progression while keeping each status visually distinguishable.
+- Kept status meaning available through text and visual treatment rather than relying on colour alone.
+- Added hover treatment and cursor: pointer to interactive status controls so their clickability is clear without changing the overall MediaVault visual language.
+- Used cursor: not-allowed for disabled status actions so disabled options are visually communicated as unavailable and do not appear clickable.
+- Kept the existing visual style while making small UI refinements such as border-radius, hover states, borders, and spacing to make controls feel more consistent and polished.
+- Added an empty state for searches or filters that return no assets.
+- Kept the grid usable during pagination and displayed the next-page loading state separately from the initial loading state.
+- Added partial-failure feedback for bulk updates through a dedicated BulkActionResult component.
+- 
+- **States.** 
+- Preserved the loading state while the initial asset data is being fetched
 - **Contrast.** What you checked against, and with what.
 - **Copy.** Any user-facing message you rewrote and why.
 
@@ -171,6 +194,14 @@ What you deliberately did not do, and what you would do with another day.
 
 What you would change about the backend contract, and what it forced you to do in
 the client that you would rather not have.
+
+- The bulk-status API returns useful per-asset failure information (id, code, message, ok), but the failure response does not include the target status that was requested for the bulk operation.
+
+This means that if the client wants to retry only retryable failures, it needs to retain the context of the original bulk operation so that it knows which status should be sent again for those asset IDs.
+
+I considered preserving and matching the original selected assets with the failed IDs to reconstruct that context on retry. However, I did not add that extra client-side bookkeeping because it would introduce additional state and implementation complexity for a relatively small retry use case.
+
+A cleaner API contract would include the requested target status as part of the bulk operation response (or provide enough operation context to safely retry the failed items). That would allow the client to retry failed assets without maintaining additional client-side references to the original operation
 
 ## Anything you would like us to look at
 The main areas I would recommend reviewing are the virtualization approach and the card-level rendering optimization.

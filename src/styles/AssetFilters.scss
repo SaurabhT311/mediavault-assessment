@@ -6,11 +6,11 @@
 
   label {
     display: inline-flex;
-    gap: 2px;
+    gap: 6px;
     align-items: center;
     font-size: 13px;
     border: 1px solid #dfe0e1;
-    padding: 2.5px 5px;
+    padding: 2.5px 8px;
     border-radius: 6px;
     cursor: pointer;
     background: white;
@@ -19,12 +19,22 @@
       background-color: #fafafa;
     }
   }
+
+  input{
+    margin: 0;
+  }
+
+  .divider{
+    --tw-bg-opacity: 1;
+    height: 20px;
+    border:1px solid rgb(229 229 229 / var(--tw-bg-opacity, 1))
+  }
 }
 
 select {
   border: 1px solid rgb(201, 198, 198);
-  border-radius: 4px;
-  padding: 4px 6px;
+  border-radius: 8px;
+  padding: 4px 10px;
   cursor: pointer;
 
   &:focus {
