@@ -1,0 +1,23 @@
+.grid {
+  flex: 1;
+  position: relative;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.grid-filter {
+  height: 79vh;
+}
+
+.grid-height {
+  height: 85vh;
+}
+
+.grid-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 8px 0;
+}

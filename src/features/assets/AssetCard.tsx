@@ -2,6 +2,7 @@ import { memo, useState } from "react";
 import { thumbnailUrl } from "@/api/client";
 import { formatBytes, formatDate, statusLabel } from "@/lib/format";
 import { Asset } from "@/lib/types";
+import "../../styles/AssetCard.scss";
 
 type AssetCardProps = {
   asset: Asset;

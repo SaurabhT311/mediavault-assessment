@@ -3,6 +3,7 @@ import type { Asset } from "@/lib/types";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { RefObject, useEffect, useMemo, useState } from "react";
 import { lazy, Suspense } from "react";
+import "../../styles/AssetGrid.scss";
 
 
 const AssetCard = lazy(() =>

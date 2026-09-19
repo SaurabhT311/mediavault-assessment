@@ -8,6 +8,7 @@ import {
   statusLabel,
 } from "@/lib/format";
 import type { Asset, AssetStatus } from "@/lib/types";
+import "../../styles/AssetDetails.scss";
 
 type Props = {
   id: string;
@@ -31,7 +32,7 @@ function StatusActions({currentStatus, saving,
   return (
     <div className="row">
       {STATUSES.map((status) => (
-        <button
+        <button className="detail-button"
           key={status}
           type="button"
           disabled={saving || status === currentStatus}
@@ -167,7 +168,7 @@ export function AssetDetail({ id, onClose, onSaved }: Props) {
 
             <section aria-labelledby="asset-status">
               <h3 id="asset-status" className="muted">
-                Status
+                Workflow Status
               </h3>
 
               {updateMutation.isError && (

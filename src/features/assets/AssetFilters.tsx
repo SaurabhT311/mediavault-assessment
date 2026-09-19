@@ -1,6 +1,7 @@
 import type { AssetKind, AssetStatus } from "@/lib/types";
 import { statusLabel } from "@/lib/format";
 import { STATUSES, KINDS } from "@/constants/assets";
+import "../../styles/AssetFilters.scss";
 
 type FilterCheckboxProps = {
   label: string;
@@ -34,7 +35,7 @@ type AssetFiltersProps = {
 };
 
 export function AssetFilters({ status, kind, shown, total, isLoading,
-  isFetching, onStatusToggle, onKindToggle }: AssetFiltersProps) {
+ onStatusToggle, onKindToggle }: AssetFiltersProps) {
   return (
     <div className="filters">
       {STATUSES.map((value) => (
