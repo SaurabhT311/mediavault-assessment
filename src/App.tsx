@@ -2,24 +2,15 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { lazy, Suspense } from "react";
 import { AssetGrid } from "@/features/assets/AssetGrid";
-import type { Asset, AssetsQueryData, AssetStatus, BulkResult } from "@/lib/types";
+import type { Asset, AssetStatus } from "@/lib/types";
 import { useAssets } from "./hooks/useAssets";
 import { useAssetFilters } from "./hooks/useAssetFilters";
 import { AssetFilters } from "./features/assets/AssetFilters";
-import { BulkAssetSelection } from "./features/assets/BulkAssetSelection";
+import  BulkAssetSelection  from "./features/assets/BulkAssetSelection";
 import { SORTS } from "./constants/assets";
-import { bulkSetStatus } from "./api/client";
-import type { BulkActionResultData } from "./features/assets/BulkActionResult";
 import "./styles/App.scss";
-
-const AssetDetail = lazy(() =>
-  import("@/features/assets/AssetDetail").then(
-    (module) => ({
-      default: module.AssetDetail,
-    }),
-  ),
-);
-
+import { useBulkOptimisticSelection } from "./hooks/useBulkOptimisticSelection";
+const AssetDetail = lazy(() => import("@/features/assets/AssetDetail"));
 const BulkActionResult = lazy(() => import("@/features/assets/BulkActionResult"));
 
 export function App() {
@@ -28,13 +19,14 @@ export function App() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const [bulkResult, setBulkResult] = useState<BulkActionResultData | null>(null);
 
   const { q, setQ, status, kind, sort, setSort, toggleStatus, toggleKind,
      query } = useAssetFilters();
 
   const { items, total, isLoading, isFetching, isError, error, isFetchingNextPage,
     hasNextPage, fetchNextPage } = useAssets(query);
+
+   const { bulkResult, setBulkResult, applyBulkStatus } = useBulkOptimisticSelection({ items, query });
 
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
@@ -112,130 +104,6 @@ export function App() {
     [items, lastSelectedId],
   );
 
-// Updates selected assets optimistically and removes assets that no longer match the active filter.
-const applyOptimisticStatus = (data: AssetsQueryData, selectedIds: Set<string>, nextStatus: AssetStatus ) => {
-  return {
-    ...data,
-    pages: data.pages.map((page) => ({
-      ...page,
-      items: page.items.map((asset) =>
-        selectedIds.has(asset.id)
-          ? { ...asset, status: nextStatus }
-          : asset,
-      ),
-    })),
-  };
-};
-
-// Reconciles the optimistic state with the server response and rolls back failed assets.
-const reconcileBulkStatus = (data: AssetsQueryData, results: BulkResult["results"],
-  previousAssets: Map<string, Asset>, statusFilter: AssetStatus[] ) => {
-  const resultById = new Map(
-    results.map((result) => [result?.id, result]),
-  );
-
-  const successfulRemovedCount = results.filter((result) => {
-    if (!result.ok) return false;
-    const previousAsset = previousAssets.get(result.id);
-    return ( previousAsset && statusFilter.length > 0 && statusFilter.includes(previousAsset.status) &&
-      !statusFilter.includes(result.asset.status))}).length;
-      
-
-  return {
-    ...data,
-    pages: data.pages.map((page, index) => ({
-      ...page,
-      total: index === 0 ? Math.max(0, page.total - successfulRemovedCount) : page.total,
-      items: page.items.map((asset) => {
-          const result = resultById.get(asset.id);
-          return result?.ok ? result.asset : result
-              ? (previousAssets.get(asset.id) ?? asset)
-              : asset;
-        }).filter((asset) => {
-            if (statusFilter.length === 0) {
-              return true;
-          }
-
-          return statusFilter.includes(asset.status);
-        }),
-    })),
-  };
-};
-
-// Restores all assets affected by a failed bulk request.
-const rollbackBulkStatus = ( data: AssetsQueryData, previousAssets: Map<string, Asset>,
-  statusFilter: AssetStatus[] ) => {
-  return {
-    ...data,
-    pages: data?.pages?.map((page) => ({
-      ...page,
-      items: page?.items.map((asset) => previousAssets.get(asset?.id) ?? asset)
-        .filter((asset) => {
-          if (statusFilter?.length === 0) return true;
-
-          return statusFilter?.includes(asset.status);
-        }),
-    })),
-  };
-}
-
-const applyBulkStatus = async (next: AssetStatus, assetIds?: string[]) => {
-  const selectedAssetIds = assetIds ?? [...selectedIds];
-
-  if (selectedAssetIds?.length === 0) return;
-  const statusFilter = query.status ?? [];
-
-  // Save the current state so failed updates can be rolled back.
-  const previousAssets = new Map(items
-      .filter((asset) => selectedAssetIds.includes(asset?.id))
-      .map((asset) => [asset?.id, asset]),
-  );
-
-  // Optimistically update the grid before waiting for the API.
-  queryClient.setQueryData<AssetsQueryData>(["assets", query], (oldData) => {
-    if (!oldData) return oldData;
-    return applyOptimisticStatus(oldData, new Set(selectedAssetIds), next);
-  });
-
-  try {
-    // Send the bulk status update to the server.
-    const result = await bulkSetStatus(selectedAssetIds, next);
-
-    // Reconcile successful updates and roll back only failed assets.
-    queryClient.setQueryData<AssetsQueryData>(["assets", query], (oldData) => {
-      if (!oldData) return oldData;
-      return reconcileBulkStatus(
-        oldData,
-        result?.results,
-        previousAssets,
-        statusFilter,
-      );
-    });
-
-    // Map failed items for structured result rendering
-    const failedItems = result?.results?.filter((asset) => !asset?.ok).map((asset) => ({
-        id: asset?.id,
-        code: asset?.code,
-        message: asset?.message || "Locked or status conflict",
-        ok: asset?.ok,
-      }));
-
-    setBulkResult({appliedCount: result?.applied || 0, failedItems , status: next,});
-
-    setSelectedIds(new Set());
-    setLastSelectedId(null);
-  } catch (err) {
-    // Roll back all optimistic changes when the request itself fails.
-
-    queryClient.setQueryData<AssetsQueryData>(["assets", query], (oldData) => {
-      if (!oldData) return oldData;
-      return rollbackBulkStatus(oldData, previousAssets, statusFilter);
-    });
-
-    console.log(err instanceof Error ? err.message : "Bulk update failed");
-  }
-};
-
 const handleRetry = async () => {
   if (!bulkResult) return;
 
@@ -245,16 +113,14 @@ const handleRetry = async () => {
 
   if (retryableAssetIds?.length === 0) return;
   console.log("bulkResult", bulkResult);
-  
-
   await applyBulkStatus(bulkResult?.status, retryableAssetIds);
 };
 
-  function handleSaved(_asset: Asset) {
-    queryClient.invalidateQueries({
-      queryKey: ["assets"],
-    });
-  }
+function handleSaved(_asset: Asset) {
+  queryClient.invalidateQueries({
+    queryKey: ["assets"],
+  });
+}
 
   return (
     <div className="app">
@@ -299,7 +165,9 @@ const handleRetry = async () => {
 
       <BulkAssetSelection
         selectedCount={selectedIds.size}
-        onStatusChange={applyBulkStatus}
+        onStatusChange={(nextStatus) =>
+          applyBulkStatus(nextStatus, [...selectedIds])
+        }
         onClear={() => setSelectedIds(new Set())}
       />
 

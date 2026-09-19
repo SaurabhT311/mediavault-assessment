@@ -8,8 +8,8 @@ type BulkAssetSelectionProps = {
   onClear: () => void;
 };
 
-export function BulkAssetSelection({ selectedCount, onStatusChange,
-  onClear }: BulkAssetSelectionProps) {
+const BulkAssetSelection = ({ selectedCount, onStatusChange,
+  onClear }: BulkAssetSelectionProps) => {
   if (selectedCount === 0) {
     return null;
   }
@@ -28,3 +28,5 @@ export function BulkAssetSelection({ selectedCount, onStatusChange,
     </div>
   );
 }
+
+export default BulkAssetSelection;

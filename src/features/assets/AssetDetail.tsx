@@ -97,7 +97,7 @@ function AssetTags({ tags }: { tags: string[] }) {
   );
 }
 
-export function AssetDetail({ id, onClose, onSaved }: Props) {
+const AssetDetail = ({ id, onClose, onSaved }: Props) => {
   const { data: asset, isLoading, isError, error } = 
   useQuery({
     queryKey: ["asset", id],
@@ -191,3 +191,5 @@ export function AssetDetail({ id, onClose, onSaved }: Props) {
     </aside>
   );
 }
+
+export default AssetDetail;
