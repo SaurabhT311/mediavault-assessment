@@ -14,6 +14,7 @@ import { chunkArray } from '@/lib/utils';
  */
 
 const BULK_MAX_IDS=50;
+const BULK_CONCURRENCY = 3;
 
 function toSearchParams(query: AssetQuery): string {
   const params = new URLSearchParams();
@@ -75,7 +76,7 @@ export function updateAsset(
 }
 
 export async function bulkSetStatus(ids: string[], status: Asset['status']): Promise<BulkResult> {
-  // Note:Fixed- the endpoint rejects more than 50 ids per call.
+  // Note: Fixed- the endpoint rejects more than 50 ids per call.
    if (ids.length === 0) {
     return { applied: 0, failed: 0, results: [] };
   }
@@ -83,14 +84,25 @@ export async function bulkSetStatus(ids: string[], status: Asset['status']): Pro
   const merged: BulkResult = { applied: 0, failed: 0, results: [] };
 
   try {
-    for (const chunk of chunkArray(ids, BULK_MAX_IDS)) {
-      const part = await request<BulkResult>('/api/assets/bulk-status', {
-        method: 'POST',
-        body: JSON.stringify({ ids: chunk, status }),
-      });
-      merged.applied += part.applied;
-      merged.failed += part.failed;
-      merged.results.push(...part.results);
+     const chunks = chunkArray(ids, BULK_MAX_IDS);
+    for (const batch of chunkArray(chunks, BULK_CONCURRENCY)) {
+      const results = await Promise.all(
+        batch.map((chunk) => {
+
+          return request<BulkResult>("/api/assets/bulk-status", {
+            method: "POST",
+            body: JSON.stringify({
+              ids: chunk,
+              status,
+            }),
+          });
+        }),
+      );
+      for (const part of results) {
+        merged.applied = merged.applied + part.applied;
+        merged.failed = merged.failed + part.failed;
+        merged.results.push(...part.results);
+      }
     }
     return merged;
   } catch (error) {

@@ -57,7 +57,7 @@ export function AssetFilters({ status, kind, shown, total, isLoading,
 
 
       <span className="muted">
-        {isLoading || isFetching
+        {isLoading
           ? "Loading…"
           : `${shown} of ${total.toLocaleString()} shown`}
       </span>

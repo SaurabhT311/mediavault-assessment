@@ -10,6 +10,7 @@ export function useAssets(query: AssetQuery) {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     staleTime: 15_000,
+    refetchOnWindowFocus: false,
   });
 
   const items = result.data?.pages.flatMap((page) => page.items) ?? [];
