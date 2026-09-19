@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import type { AssetKind, AssetQuery, AssetStatus } from "@/lib/types";
 import { useDebounce } from "./useDebounce";
 
@@ -13,21 +13,21 @@ export function useAssetFilters() {
 
   const debouncedSearch = useDebounce(q, 500);
 
-  const toggleStatus = (value: AssetStatus) => {
+  const toggleStatus = useCallback((value: AssetStatus) => {
     setStatus((prev) =>
       prev.includes(value)
         ? prev.filter((item) => item !== value)
         : [...prev, value],
     );
-  };
+  },[]);
 
-  const toggleKind = (value: AssetKind) => {
+  const toggleKind = useCallback((value: AssetKind) => {
     setKind((prev) =>
       prev.includes(value)
         ? prev.filter((item) => item !== value)
         : [...prev, value],
     );
-  };
+  },[]);
 
 
   const query: AssetQuery = {

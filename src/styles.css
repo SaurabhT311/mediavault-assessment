@@ -4,7 +4,7 @@
   --line: #d9dce1;
   --bg: #ffffff;
   --bg-soft: #f5f6f8;
-  --accent: #2b5fd9;
+  --accent: #4f46e5;
   --danger: #a5301f;
   color-scheme: light;
 }
@@ -15,7 +15,7 @@
 
 body {
   margin: 0;
-  font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font: 15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;
   color: var(--ink);
   background: var(--bg);
   overflow: hidden;
@@ -45,18 +45,19 @@ input {
 }
 
 button {
-  padding: 5px 10px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--bg);
+  border: 1px solid #dfe0e1;
+  padding: 2px 10px;
+  border-radius: 6px;
   cursor: pointer;
+  background: white;
 }
 button:hover:not(:disabled) {
-  background: var(--bg-soft);
+  background: #fafafa;
 }
+
 button:disabled {
   color: var(--ink-soft);
-  cursor: default;
+  cursor: not-allowed;
 }
 
 :focus-visible {
@@ -84,14 +85,31 @@ button:disabled {
 }
 
 .search {
-  flex: 1;
-  max-width: 380px;
-  padding: 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  width: 30%;
+  padding: 0.5rem 1rem;
+  background-color: #f5f5f5;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition-property:
+    color, background-color, border-color, text-decoration-color, fill, stroke,
+    opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
 }
 
-select{
+.search:hover {
+  background-color: rgba(245, 245, 245, 0.7); /* hover:bg-neutral-100/70 */
+}
+
+.search:focus {
+  background-color: #ffffff;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+select {
   border: 1px solid rgb(201, 198, 198);
   border-radius: 4px;
   padding: 4px 6px;
@@ -100,27 +118,29 @@ select{
 
 select:focus {
   outline: none;
-  border-color: #00639a;
+  border-color: #4f46e5;
   box-shadow: none;
 }
 
 .filters {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
   padding: 10px 16px;
-  border-bottom: 1px solid var(--line);
-  background: var(--bg-soft);
 }
 .filters label {
   display: inline-flex;
-  gap: 6px;
+  gap: 2px;
   align-items: center;
   font-size: 13px;
+  border: 1px solid #dfe0e1;
+  padding: 2.5px 5px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: white;
 }
-
-input[type= "checkbox"]{
-  cursor:pointer;
+.filters label:hover {
+  background-color: #fafafa;
 }
 
 .bulkbar {
@@ -153,12 +173,12 @@ input[type= "checkbox"]{
   padding: 16px;
 }
 
-.grid-filter{
+.grid-filter {
   height: 79vh;
 }
 
-.grid-height{
-  height:85vh
+.grid-height {
+  height: 85vh;
 }
 
 .grid-row {
@@ -176,6 +196,7 @@ input[type= "checkbox"]{
   border-radius: 6px;
   background: var(--bg);
   cursor: pointer;
+  border-radius: 6px;
 }
 .card--selected {
   border-color: var(--accent);
@@ -190,6 +211,7 @@ input[type= "checkbox"]{
   aspect-ratio: 16 / 10;
   object-fit: cover;
   background: var(--bg-soft);
+  border-radius: 6px;
 }
 .card__thumb img {
   display: block;
@@ -197,6 +219,7 @@ input[type= "checkbox"]{
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 6px;
 }
 .card__thumb-placeholder {
   width: 100%;
@@ -207,6 +230,7 @@ input[type= "checkbox"]{
   background: #f5f5f5;
   color: #777;
   font-size: 14px;
+  border-radius: 6px;
 }
 
 .card__body {
@@ -298,6 +322,21 @@ input[type= "checkbox"]{
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.detail-button {
+  padding: 3px 6px;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e5e5;
+  text-align: center;
+  transition-property: color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+  font-size: 14px;
+}
+
+.button-style:hover {
+  background-color: #fafafa;
 }
 
 .empty {

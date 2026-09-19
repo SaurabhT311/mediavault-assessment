@@ -52,8 +52,8 @@ A significant amount of time was also spent implementing and refining the row-ba
 | 11 | Optimistic updates could cause the entire asset list to be refreshed after the API response  | `Bulk status handling` | Fixed — the existing query cache is reconciled using the per-asset API results instead of invalidating and refetching the full list |
 | 12 | Failed bulk updates need to restore only the affected assets | `Bulk status Handling, App.tsx` | Fixed — successful assets keep their server response while failed assets are rolled back to their previous state |
 | 13 | Multi-selection needed to support selecting a continuous range efficiently | `AssetGrid.tsx / AssetCard.tsx` | Fixed — implemented Shift-click range selection and select-all for currently loaded assets |
-| | | |
-| | | |
+| 14 | Shown/total asset counts could become incorrect after optimistic bulk status updates | `App.tsx/client.ts` | Fixed — The TanStack Query cache and filtered totals are reconciled immediately without requiring a full refetch |
+| 15 | Selected assets could remain selected after their status filter was removed | `useAssetFilter.ts / App.tsx`  | Fixed — When a status filter is removed, selected assets belonging to that status are automatically removed from the selection |
 | | | |
 
 

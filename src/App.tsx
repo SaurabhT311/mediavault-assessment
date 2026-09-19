@@ -9,6 +9,7 @@ import { AssetFilters } from "./features/assets/AssetFilters";
 import { BulkAssetSelection } from "./features/assets/BulkAssetSelection";
 import { SORTS } from "./constants/assets";
 import { bulkSetStatus } from "./api/client";
+import "./styles/App.scss";
 
 const AssetDetail = lazy(() =>
   import("@/features/assets/AssetDetail").then(
@@ -47,6 +48,27 @@ export function App() {
       scrollContainer.removeEventListener("scroll", handleInfiniteScroll);
     };
   }, [isFetchingNextPage, hasNextPage, fetchNextPage]);
+
+  const handleStatusToggle = useCallback((value: AssetStatus) => {
+    const isRemoving = status.includes(value);
+    toggleStatus(value);
+
+    if (!isRemoving) return;
+
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+
+      items.forEach((asset) => {
+        if (asset?.status === value) {
+          next.delete(asset.id);
+        }
+      });
+
+      return next;
+    });
+  },
+  [status, items, toggleStatus],
+);
 
  const addSelectedRange = ( selectedIds: Set<string>, assets: Asset[], startIndex: number,
   endIndex: number,
@@ -240,7 +262,7 @@ const applyBulkStatus = async(next: AssetStatus) => {
         total={total}
         isLoading={isLoading}
         isFetching={isFetching}
-        onStatusToggle={toggleStatus}
+        onStatusToggle={handleStatusToggle}
         onKindToggle={toggleKind}
       />
 
