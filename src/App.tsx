@@ -27,7 +27,12 @@ export function App() {
   const { items, total, isLoading, isFetching, isError, error, isFetchingNextPage,
     hasNextPage, fetchNextPage } = useAssets(query);
 
-   const { bulkResult, setBulkResult, applyBulkStatus } = useBulkOptimisticSelection({ items, query });
+  const { bulkResult, setBulkResult, applyBulkStatus } = useBulkOptimisticSelection({ items, query, 
+    onSelectionClear: () => {
+      setSelectedIds(new Set());
+      setLastSelectedId(null);
+  }, 
+});
 
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
@@ -113,8 +118,7 @@ const handleRetry = async () => {
     .map((item) => item?.id);
 
   if (retryableAssetIds?.length === 0) return;
-  console.log("bulkResult", bulkResult);
-  await applyBulkStatus(bulkResult?.status, retryableAssetIds);
+  await applyBulkStatus(bulkResult?.status, retryableAssetIds, true);
 };
 
 function handleSaved(updatedAsset: Asset) {

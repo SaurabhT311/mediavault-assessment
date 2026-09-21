@@ -5,7 +5,6 @@ import { RefObject, useEffect, useMemo, useState } from "react";
 import { lazy, Suspense } from "react";
 import "../../styles/AssetGrid.scss";
 
-
 const AssetCard = lazy(() =>
   import("./AssetCard").then(
     (module) => ({
@@ -98,13 +97,13 @@ export function AssetGrid({
           height: rowVirtualizer.getTotalSize(),
         }}
       >
-        {virtualRows.map((virtualRow) => {
+        {virtualRows.map((virtualRow) => {          
           const row = rows[virtualRow.index];
           if (!row) return null;
 
           return (
             <div
-              key={virtualRow.key}
+              key={virtualRow.index}
               ref={rowVirtualizer.measureElement}
               data-index={virtualRow.index}
               className="grid-row"

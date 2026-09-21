@@ -5,19 +5,43 @@ export const applyOptimisticStatus = (
   data: AssetsQueryData,
   selectedIds: Set<string>,
   nextStatus: AssetStatus,
+  statusFilter: AssetStatus[],
 ): AssetsQueryData => {
-  return {
-    ...data,
-    pages: data?.pages?.map((page) => ({
+  let removedCount = 0;
+
+  const pages = data?.pages.map((page, pageIndex) => {
+    const items = page?.items.map((asset) => {
+        if (!selectedIds.has(asset?.id)) {
+          return asset;
+        }
+
+        return {
+          ...asset,
+          status: nextStatus,
+        };
+      })
+      .filter((asset) => {
+        if (statusFilter?.length === 0) {
+          return true;
+        }
+
+        const shouldKeep = statusFilter.includes(asset?.status);
+        if (!shouldKeep && selectedIds.has(asset?.id)) {
+          removedCount++;
+        }
+
+        return shouldKeep;
+      });
+
+    return {
       ...page,
-      items: page?.items?.map((asset) =>
-        selectedIds.has(asset?.id)
-          ? { ...asset, status: nextStatus }
-          : asset,
-      ),
-    })),
-  };
-}
+      items,
+      total: pageIndex === 0 ? Math.max(0, page?.total - removedCount) : page.total,
+    };
+  });
+
+  return { ...data, pages };
+};
 
 // Reconciles the optimistic state with the server response and rolls back failed assets.
 

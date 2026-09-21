@@ -1,8 +1,41 @@
+$font-family: inherit;
+
+// Feedback colors
+$color-success-bg: #fffdf5;
+$color-success-border: #f6e6be;
+$color-success-border-hover: #edd8a4;
+$color-success-dot: #52b788;
+$color-success-text: #1b4332;
+
+$color-failed-dot: #f87171;
+$color-failed-text: #9e2a2b;
+$color-failed-underline: #e5989b;
+$color-reason-text: #d90429;
+
+//Retry colors
+$color-retry-text: #b45309;
+$color-retry-border: #f59e0b;
+$color-retry-bg: #fffbeb;
+$color-retry-bg-hover: #fef3c7;
+$color-retry-border-hover: #d97706;
+$color-retry-dot: #f59e0b;
+
+// Non-retryable muted
+$color-non-retry-dot: #94a3b8;
+$color-non-retry-text: #64748b;
+
+// Dropdown neutrals
+$color-dropdown-bg: #ffffff;
+$color-dropdown-border: #e2e8f0;
+$color-header-bg: #f8fafc;
+$color-summary-bg: #fafafa;
+$color-divider: #f1f5f9;
+
 .container {
   position: relative;
   display: inline-block;
   margin: 12px 0;
-  font-family: inherit;
+  font-family: $font-family;
 
   .badge {
     display: inline-flex;
@@ -10,8 +43,8 @@
     gap: 8px;
     width: 300px;
     padding: 6px 16px;
-    background-color: #fffdf5;
-    border: 1px solid #f6e6be;
+    background-color: $color-success-bg;
+    border: 1px solid $color-success-border;
     border-radius: 8px;
     cursor: default;
     user-select: none;
@@ -22,7 +55,7 @@
 
       &:hover {
         background-color: #fffaf0;
-        border-color: #edd8a4;
+        border-color: $color-success-border-hover;
       }
     }
 
@@ -43,11 +76,11 @@
     }
 
     .dotSuccess {
-      background-color: #52b788;
+      background-color: $color-success-dot;
     }
 
     .dotFailed {
-      background-color: #f8d7da;
+      background-color: $color-failed-dot;
     }
 
     .textSuccess,
@@ -56,15 +89,15 @@
     }
 
     .textSuccess {
-      color: #1b4332;
+      color: $color-success-text;
       font-weight: 600;
     }
 
     .textFailed {
-      color: #9e2a2b;
+      color: $color-failed-text;
       font-weight: 700;
       text-decoration: underline;
-      text-decoration-color: #e5989b;
+      text-decoration-color: $color-failed-underline;
       text-underline-offset: 3px;
     }
 
@@ -75,7 +108,7 @@
 
     .arrow {
       margin-left: 2px;
-      color: #d90429;
+      color: $color-failed-text;
       transition: transform 0.2s ease;
 
       &.arrowOpen {
@@ -103,10 +136,10 @@
     top: calc(100% + 6px);
     left: 0;
     z-index: 50;
-    width: 300px;
+    width: 302px;
     overflow: hidden;
-    background: #ffffff;
-    border: 1px solid #e0e0e0;
+    background: $color-dropdown-bg;
+    border: 1px solid $color-dropdown-border;
     border-radius: 12px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
     animation: fadeIn 0.15s ease-out;
@@ -116,58 +149,144 @@
       align-items: center;
       justify-content: space-between;
       padding: 10px 14px;
-      background-color: #fafafa;
-      border-bottom: 1px solid #f0f0f0;
-      color: #666;
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
+      background-color: $color-header-bg;
+      border-bottom: 1px solid $color-divider;
+
+      .headerTitle {
+        color: #475569;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+      }
 
       .retryBtn {
         padding: 4px 10px;
-        border: 1px solid #d90429;
+        border: 1px solid $color-retry-border;
         border-radius: 6px;
-        background: #ffffff;
-        color: #d90429;
+        background: $color-retry-bg;
+        color: $color-retry-text;
         font-size: 12px;
         font-weight: 600;
-        transition: all 0.2s ease;
+        cursor: pointer;
+        transition: all 0.15s ease-in-out;
+
+        &:hover:not(:disabled) {
+          background: $color-retry-bg-hover;
+          border-color: $color-retry-border-hover;
+          color: darken($color-retry-text, 8%);
+        }
 
         &:disabled {
-        cursor: not-allowed;
-        opacity: 0.5;
+          cursor: not-allowed;
+          opacity: 0.6;
+        }
+      }
+    }
+
+    .failureSummary {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 16px;
+      padding: 8px 14px;
+      background-color: $color-summary-bg;
+      border-bottom: 1px solid $color-divider;
+
+      .summaryItem {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+
+        .dotRetryable,
+        .dotNonRetryable {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+
+        .dotRetryable {
+          background-color: $color-retry-dot;
+        }
+
+        .dotNonRetryable {
+          background-color: $color-non-retry-dot;
+        }
+
+        .summaryText {
+          font-size: 12px;
+          font-weight: 500;
+          color: #475569;
         }
       }
     }
 
     .failureList {
-      max-height: 220px;
+      max-height: 250px;
       margin: 0;
       padding: 0;
       overflow-y: auto;
-      list-style: none;
 
-      .failureItem {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        padding: 10px 14px;
-        border-bottom: 1px solid #f5f5f5;
-
-        &:last-child {
-          border-bottom: none;
+      .groupSection {
+        &:not(:last-child) {
+          border-bottom: 1px solid $color-divider;
         }
 
-        .itemId {
-          color: #2b2b2b;
-          font-size: 13px;
+        .groupTitle {
+          padding: 6px 14px;
+          background-color: #f8fafc;
+          border-bottom: 1px solid #f1f5f9;
+          color: #64748b;
+          font-size: 11px;
           font-weight: 600;
+          letter-spacing: 0.2px;
         }
 
-        .reason {
-          color: #d90429;
-          font-size: 12px;
+        .groupList {
+          margin: 0;
+          padding: 0;
+          list-style: none;
+
+          .failureItem {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding: 9px 14px;
+            border-bottom: 1px solid #f8fafc;
+
+            &:last-child {
+              border-bottom: none;
+            }
+
+            .itemId {
+              color: #1e293b;
+              font-size: 12px;
+              font-weight: 600;
+            }
+
+            .reason {
+              color: $color-reason-text;
+              font-size: 12px;
+              font-weight: 400;
+              line-height: 1.35;
+            }
+
+            .retryStatus {
+              font-size: 11px;
+              font-weight: 500;
+              margin-top: 1px;
+
+              &.cannotRetry {
+                color: $color-non-retry-text;
+              }
+
+              &.canRetry {
+                color: $color-retry-text;
+                font-weight: 600;
+              }
+            }
+          }
         }
       }
     }

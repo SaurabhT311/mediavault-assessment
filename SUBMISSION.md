@@ -22,12 +22,12 @@ install `npm install @tanstack/react-virtual`
 ## Time spent
 
 Roughly, and how you split it.
-Codebase and API understanding: ~25%
-Data fetching, caching and state management: ~20%
-Bulk status handling and API edge cases: ~25%
-Performance and rendering:
-Accessibility and UI states: 
-Final testing and cleanup:
+Codebase and API understanding: ~20%
+Data fetching, caching and state management: ~18%
+Bulk status handling and API edge cases: ~30%
+Performance and rendering: 20%
+Accessibility and UI states: 5%
+Final testing and cleanup: 7%
 
 The most time was spent understanding the existing code and API behaviour before making changes, especially the cursor-based pagination, filtering/sorting behaviour, partial bulk-update responses, and how optimistic updates should interact with the existing cached pages.
 
@@ -54,6 +54,11 @@ A significant amount of time was also spent implementing and refining the row-ba
 | 13 | Multi-selection needed to support selecting a continuous range efficiently | `AssetGrid.tsx / AssetCard.tsx` | Fixed — implemented Shift-click range selection and select-all for currently loaded assets |
 | 14 | Shown/total asset counts could become incorrect after optimistic bulk status updates | `App.tsx/client.ts` | Fixed — The TanStack Query cache and filtered totals are reconciled immediately without requiring a full refetch |
 | 15 | Selected assets could remain selected after their status filter was removed | `useAssetFilter.ts / App.tsx`  | Fixed — When a status filter is removed, selected assets belonging to that status are automatically removed from the selection |
+| 16 | Bulk retry could treat every failure as retryable | `Bulk status handling / BulkActionResult`| Fixed — only conflict failures are retryable; permanent failures such as legal_hold and not_found remain visible and are not retried |
+| 17 | Bulk retry could lose the original failed-item count | `Bulk status handling / BulkActionResult` | Fixed — retry results are merged with unresolved failures from the original operation and successful retries are added to the cumulative applied count |
+| 18 | Bulk operation could leave assets selected after success | `Bulk status handling / App.tsx` | Fixed — successful bulk operations clear the selected IDs and reset the selected count |
+| 19 | Retry behaviour needed to respect backend rate-limit and retry headers | `client.ts / retry.ts` | Fixed — generic retry logic respects Retry-After and applies bounded, operation-specific retries
+| | | |
 | | | |
 
 
@@ -71,6 +76,9 @@ six of these is about right.
 - Used a Set for selected IDs so checking, adding and removing selections remains efficient when selecting hundreds of assets.
 - Added a way to select all currently loaded assets.
 - Kept selection state in App.tsx so the grid remains responsible for presentation while the parent owns the selection state and bulk-action behaviour.
+- After a successful bulk operation, the selection is explicitly cleared so the selected count returns to zero and previously checked assets do not remain selected after their status changes.
+
+Data fetching and caching
 
 **Data fetching and caching**
 - Used TanStack React Query for server state instead of storing fetched asset data entirely in local React state.
@@ -101,14 +109,19 @@ six of these is about right.
 - When a status filter is active, the optimistic update also reapplies that filter. For example, changing a Draft asset to In Review immediately removes it from the Draft result rather than waiting for a refetch.
 
 **Retry and backoff policy**
-- The API identifies conflict failures separately from permanent failures such as legal_hold and not_found. I treat only conflict as retryable.
-
-- I considered automatically retrying those conflicts with exponential backoff. However, the API response does not provide the target status required to reconstruct the original operation independently. Implementing this entirely on the client would require retaining additional context from the original bulk operation and matching it against the failed asset IDs.
-
-For this take-home implementation, I chose not to introduce that additional client-side state and complexity. Instead, retryable conflicts are identified explicitly in the failure breakdown, while permanent failures are left unchanged.
-In a production API, I would prefer the backend to expose sufficient operation context (for example, the requested target status or a retryable operation identifier) so the client can safely retry failed assets. With that contract, exponential backoff could be applied only to retryable conflicts, with a small bounded number of attempts.
+- Added one generic retry utility rather than separate retry implementations for each API operation. The retry decision is supplied by the caller so each operation can define which failures are safe to repeat.
+- Respected the API's Retry-After response header. A 503 uses the server-provided delay, and a 429 waits for the server-provided rate-limit delay instead of immediately retrying..
+- Kept retries bounded and disabled duplicate TanStack Query retries for operations where the application-level retry policy is responsible. This avoids stacking two independent retry mechanisms and creating unnecessary retry traffic.
+- For asset PATCH requests, transient 500 write failures and rate limits can be retried, while 409 version conflicts are not blindly retried because the version sent with the request is stale and needs reconciliation first.
+- For bulk status updates, only conflict results are retryable. Permanent failures such as legal_hold and not_found remain in the failure breakdown and are never sent through the retry request.
+- Retry results are merged with the existing unresolved failures rather than replacing the entire failure list. This preserves non-retryable failures in the dropdown while only replacing the subset of conflict items that was actually retried.
+- The bulk result keeps the cumulative number of successfully updated assets while the failure list represents the failures that are still unresolved. This keeps the result understandable across multiple retry attempts.
 
 **State placement and URL sync**
+- Kept selected IDs, the last selected asset for Shift-click ranges, notices, and bulk-result UI state in React state rather than adding Redux or Zustand.
+- Kept server state in TanStack Query and used the query key to isolate search/filter/sort combinations.
+- Passed a selection-clear callback into the bulk operation hook so a successful bulk operation can clear the parent's selected IDs without moving selection ownership into the hook.
+- Kept the bulk result separate from the selection state. Clearing the checkboxes after a successful operation does not remove the failure breakdown, so unresolved failures can still be reviewed and retried.
 
 ---
 
@@ -172,13 +185,23 @@ follow from it. Then briefly:
 - Added an empty state for searches or filters that return no assets.
 - Kept the grid usable during pagination and displayed the next-page loading state separately from the initial loading state.
 - Added partial-failure feedback for bulk updates through a dedicated BulkActionResult component.
-- 
+- The bulk result dropdown separates retryable conflict failures from failures that cannot be retried, shows the number of retryable items, and keeps the complete unresolved failure list visible after a partial retry.
+- The Retry action sends only retryable conflict IDs instead of resubmitting the entire original selection.
+- Asset detail updates use the asset's current version so stale 409 version conflicts are distinguished from transient failures that are safe to retry
+
 - **States.** 
 - Preserved the loading state while the initial asset data is being fetched
+- Kept failure reasons visible in the dropdown so users can understand why an individual asset was not updated.
+- Displayed partial bulk-operation results so users can distinguish successful updates, retryable failures, and failures that cannot be retried.
 - **Contrast.** What you checked against, and with what.
 - **Copy.** Any user-facing message you rewrote and why.
 
 Screenshots in the repo are welcome — link them here.
+**Performance**
+![alt text](image.png)
+
+**Profiler**
+![alt text](image-1.png)
 
 ---
 
@@ -189,6 +212,9 @@ What you deliberately did not do, and what you would do with another day.
 - I implemented the API's 50-ID constraint and partial-success handling. I didn't add a retry layer because the existing request abstraction doesn't expose the response headers needed for Retry-After, and I wanted to avoid introducing a larger networking abstraction for this task.
 - I did not introduce Redux Toolkit or Zustand because the current state can be handled cleanly with TanStack Query and React state.
 - I did not add optimistic bulk updates because partial per-item failures make rollback more complicated and the server response is the source of truth.
+- I kept optimistic bulk updates despite partial per-item failures by capturing the previous state of affected assets and reconciling each returned result individually. Failed assets are rolled back while successful assets use the server response.
+- I did not add a global client-side rate limiter. The retry layer respects the server's Retry-After values, keeps attempts bounded, and avoids duplicate TanStack Query retries. A larger application with many concurrent write operations could justify a shared request scheduler.
+- I kept the retry scope intentionally narrow. Only failures explicitly identified as retryable conflicts are retried for bulk operations; permanent failures remain visible for user review rather than being repeatedly submitted.
 
 ## Critique of the API
 

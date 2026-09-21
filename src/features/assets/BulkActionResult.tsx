@@ -21,13 +21,20 @@ interface BulkActionResultProps {
   onRetry?: () => void;
 }
 
-const BulkActionResult = ({ result, onClose, onRetry }: BulkActionResultProps) => {
+const BulkActionResult = ({result, onClose, onRetry}: BulkActionResultProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
   if (!result) return null;
 
   const { appliedCount, failedItems } = result;
   const failedCount = failedItems?.length;
+  const retryableItems = failedItems?.filter(
+    (item) => item.code === "conflict",
+  );
+
+  const nonRetryableItems = failedItems?.filter(
+    (item) => item.code !== "conflict",
+  );
 
   return (
     <div className="container">
@@ -81,29 +88,86 @@ const BulkActionResult = ({ result, onClose, onRetry }: BulkActionResultProps) =
       {isOpen && failedCount > 0 && (
         <div className="dropdown">
           <div className="dropdownHeader">
-            <span>Failure Breakdown ({failedCount})</span>
+            <span className="headerTitle">
+              Failure Breakdown ({failedCount})
+            </span>
             <button
               type="button"
               className="retryBtn"
-              disabled
+              disabled={retryableItems?.length === 0}
               onClick={(e) => {
                 e.stopPropagation();
                 onRetry?.();
               }}
             >
-              Retry ({failedCount})
+              Retry ({retryableItems?.length})
             </button>
           </div>
-          <ul className="failureList">
-            {failedItems.map((item, idx) => (
-              <li key={item.id || idx} className="failureItem">
-                <span className="itemId">Asset ID: {item.id}</span>
-                <span className="reason">
-                  {item.message || "Locked or insufficient permissions"}
-                </span>
-              </li>
-            ))}
-          </ul>
+
+          <div className="failureSummary">
+            <div className="summaryItem">
+              <span className="dotRetryable" />
+              <span className="summaryText">
+                {retryableItems?.length} retriable
+              </span>
+            </div>
+
+            <div className="summaryItem">
+              <span className="dotNonRetryable" />
+              <span className="summaryText">
+                {nonRetryableItems?.length} cannot be retried
+              </span>
+            </div>
+          </div>
+
+          {/* Grouped Lists: Non-retryable first, Retriable second */}
+          <div className="failureList">
+            {/* Group 1: Cannot Retry */}
+            {nonRetryableItems?.length > 0 && (
+              <div className="groupSection">
+                <div className="groupTitle">
+                  Cannot be retried ({nonRetryableItems?.length})
+                </div>
+                <ul className="groupList">
+                  {nonRetryableItems.map((item, idx) => (
+                    <li
+                      key={item?.id ?? `non-retry-${idx}`}
+                      className="failureItem"
+                    >
+                      <span className="itemId">Asset ID: {item?.id}</span>
+                      <span className="reason">
+                        {item?.message || "Asset is on legal hold."}
+                      </span>
+                      <span className="retryStatus cannotRetry">
+                        Cannot retry
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Group 2: Retriable */}
+            {retryableItems.length > 0 && (
+              <div className="groupSection">
+                <div className="groupTitle">
+                  Can retry ({retryableItems?.length})
+                </div>
+                <ul className="groupList">
+                  {retryableItems.map((item, idx) => (
+                    <li key={item.id ?? `retry-${idx}`} className="failureItem">
+                      <span className="itemId">Asset ID: {item.id}</span>
+                      <span className="reason">
+                        {item?.message ||
+                          "Concurrent version modification detected."}
+                      </span>
+                      <span className="retryStatus canRetry">Retriable</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
