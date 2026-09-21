@@ -37,13 +37,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     let detail = res.statusText;
+    let code = "write_failed";
     try {
       const body = await res.json();
       detail = body?.error?.message ?? detail;
+      code = body?.error?.code ?? code;
     } catch {
       /* response was not JSON */
     }
-    throw new Error(`${res.status}: ${detail}`);
+
+    const retryAfterHeader = res.headers.get("Retry-After");
+    const retryAfter = retryAfterHeader ? Number(retryAfterHeader) : undefined;
+
+    throw new ApiError(res.status, code, detail, retryAfter);
   }
   return res.json() as Promise<T>;
 }

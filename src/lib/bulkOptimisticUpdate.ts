@@ -90,3 +90,29 @@ export const rollbackBulkStatus = (
     })),
   };
 }
+
+export function updateAssetInAssetsQuery(
+  data: AssetsQueryData,
+  updatedAsset: Asset,
+  statusFilter: AssetStatus[],
+): AssetsQueryData {
+  return {
+    ...data,
+    pages: data.pages.map((page) => ({
+      ...page,
+      items: page.items
+        .map((asset) =>
+          asset.id === updatedAsset.id
+            ? updatedAsset
+            : asset,
+        )
+        .filter((asset) => {
+          if (statusFilter.length === 0) {
+            return true;
+          }
+
+          return statusFilter.includes(asset.status);
+        }),
+    })),
+  };
+}

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { lazy, Suspense } from "react";
 import { AssetGrid } from "@/features/assets/AssetGrid";
-import type { Asset, AssetStatus } from "@/lib/types";
+import type { Asset, AssetsQueryData, AssetStatus } from "@/lib/types";
 import { useAssets } from "./hooks/useAssets";
 import { useAssetFilters } from "./hooks/useAssetFilters";
 import { AssetFilters } from "./features/assets/AssetFilters";
@@ -10,6 +10,7 @@ import  BulkAssetSelection  from "./features/assets/BulkAssetSelection";
 import { SORTS } from "./constants/assets";
 import "./styles/App.scss";
 import { useBulkOptimisticSelection } from "./hooks/useBulkOptimisticSelection";
+import { updateAssetInAssetsQuery } from "./lib/bulkOptimisticUpdate";
 const AssetDetail = lazy(() => import("@/features/assets/AssetDetail"));
 const BulkActionResult = lazy(() => import("@/features/assets/BulkActionResult"));
 
@@ -116,10 +117,24 @@ const handleRetry = async () => {
   await applyBulkStatus(bulkResult?.status, retryableAssetIds);
 };
 
-function handleSaved(_asset: Asset) {
-  queryClient.invalidateQueries({
-    queryKey: ["assets"],
-  });
+function handleSaved(updatedAsset: Asset) {
+  queryClient.setQueryData(
+    ["asset", updatedAsset.id],
+    updatedAsset,
+  );
+
+  queryClient.setQueriesData<AssetsQueryData>(
+    { queryKey: ["assets"] },
+    (oldData) => {
+      if (!oldData) return oldData;
+
+      return updateAssetInAssetsQuery(
+        oldData,
+        updatedAsset,
+        query.status ?? [],
+      );
+    },
+  );
 }
 
   return (

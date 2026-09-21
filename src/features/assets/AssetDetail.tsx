@@ -1,5 +1,5 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { getAsset, thumbnailUrl, updateAsset } from "@/api/client";
+import { useQuery } from "@tanstack/react-query";
+import { getAsset, thumbnailUrl } from "@/api/client";
 import { STATUSES } from "@/constants/assets";
 import {
   formatBytes,
@@ -9,6 +9,7 @@ import {
 } from "@/lib/format";
 import type { Asset, AssetStatus } from "@/lib/types";
 import "../../styles/AssetDetails.scss";
+import { useUpdateAsset } from "@/hooks/useUpdateAsset";
 
 type Props = {
   id: string;
@@ -102,23 +103,21 @@ const AssetDetail = ({ id, onClose, onSaved }: Props) => {
   useQuery({
     queryKey: ["asset", id],
     queryFn: ({ signal }) => getAsset(id, signal),
+    staleTime: 15_000,
   });
 
-  const updateMutation = useMutation({
-    mutationFn: (status: AssetStatus) => {
-      if (!asset) {
-        throw new Error("Asset not loaded");
-      }
-      return updateAsset(asset?.id, asset?.version, { status });
-    },
-    onSuccess: (updatedAsset) => {
-      onSaved(updatedAsset);
-    },
-  });
+  const updateMutation = useUpdateAsset({
+  asset,
+  onSuccess: onSaved,
+});
 
   const handleStatusChange = (status: AssetStatus) => {
-    updateMutation.mutate(status);
-  };
+  if (updateMutation.isPending) {
+    return;
+  }
+
+  updateMutation.mutate(status);
+};
 
   return (
     <aside className="panel" aria-label="Asset details">
