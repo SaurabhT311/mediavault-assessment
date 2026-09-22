@@ -78,8 +78,6 @@ six of these is about right.
 - Kept selection state in App.tsx so the grid remains responsible for presentation while the parent owns the selection state and bulk-action behaviour.
 - After a successful bulk operation, the selection is explicitly cleared so the selected count returns to zero and previously checked assets do not remain selected after their status changes.
 
-Data fetching and caching
-
 **Data fetching and caching**
 - Used TanStack React Query for server state instead of storing fetched asset data entirely in local React state.
 - Used query invalidation after bulk status updates so the server remains the source of truth.
@@ -133,17 +131,17 @@ Fill in real measurements, not estimates. Say which machine and browser.
 | --- | --- | --- | --- |
 | Rendered DOM nodes at 5,000 rows loaded | | | |
 | Cards re-rendered when toggling one selection | 11 cards | 1 card | React DevTools Profiler |
-| Longest task during sustained scroll | | | |
+| Longest task during sustained scroll | 49.7ms | 23.32ms | Measured via Chrome DevTools Performance profiler by recording a sustained scroll and isolating the peak top-level main-thread Task duration from the Event Log. |
 | Requests fired while typing a 6-character query | 6 | 1 | Browser Network panel |
-| Production bundle, gzipped | | | |
+| Production bundle, gzipped | 48kb | 70kb | Measured via Vite Rollup build stats (gzip). Reduced critical path via React.lazy / <Suspense> route splitting and native viewport-deferred image loading. |
 
 What was the actual bottleneck, and how did you find it?
 
 - The main rendering bottleneck was the asset card grid. Rendering the full loaded asset list means the amount of DOM and rendering work grows as more assets are loaded.
 - To address this, the asset grid was changed to use row-based virtualization with @tanstack/react-virtual. The virtualizer renders only the rows around the current viewport while maintaining the overall scrollable height. This keeps the rendered portion of the grid bounded by the viewport instead of rendering every loaded asset.
 - The number of columns is calculated from the available grid width, so the implementation does not rely on a hardcoded number of cards per row. Card dimensions remain controlled by CSS.
-- I also used React.memo at the AssetCard boundary and a stable useCallback for selection. Profiling confirmed that changing one selection no longer causes all visible cards to re-render which improved the performance from 48 to 86.
-- The 48 → 86 result is a Lighthouse performance score comparison and is not being used as a substitute for the DOM-node, React re-render, long-task, or bundle-size measurements above.
+- I also used React.memo at the AssetCard boundary and a stable useCallback for selection. Profiling confirmed that changing one selection no longer causes all visible cards to re-render which improved the performance from 48 to 89.
+- Lighthouse performance improved from 48 to 89. This is a directional performance measurement and is not being used as a substitute for DOM-node, React render, long-task, or bundle-size measurements.
 - I also verified that selecting a large number of assets {eg: >500} does not cause noticeable UI stutter because selection uses a Set and the grid remains virtualized.
 - The optimistic bulk-status flow was also refined to avoid invalidating and refetching the entire asset query after a successful bulk operation. This is important for large lists because a full refetch can replace the loaded result set while the user is browsing deep in the list and make them lose their current context.
 - Successful and failed bulk results are reconciled directly into the existing cached pages, so the user's loaded pages and scroll context are preserved instead of rebuilding the entire list.
@@ -189,7 +187,7 @@ follow from it. Then briefly:
 - The Retry action sends only retryable conflict IDs instead of resubmitting the entire original selection.
 - Asset detail updates use the asset's current version so stale 409 version conflicts are distinguished from transient failures that are safe to retry
 
-- **States.** 
+ **States.** 
 - Preserved the loading state while the initial asset data is being fetched
 - Kept failure reasons visible in the dropdown so users can understand why an individual asset was not updated.
 - Displayed partial bulk-operation results so users can distinguish successful updates, retryable failures, and failures that cannot be retried.
@@ -198,10 +196,12 @@ follow from it. Then briefly:
 
 Screenshots in the repo are welcome — link them here.
 **Performance**
-![alt text](image.png)
+![alt text](./image/Performance.png)
+
+![alt text](./image/Performance-2.png)
 
 **Profiler**
-![alt text](image-1.png)
+![alt text](./image/Profiler.png)
 
 ---
 
