@@ -16,6 +16,8 @@ import { chunkArray } from '@/lib/utils';
 const BULK_MAX_IDS=50;
 const BULK_CONCURRENCY = 3;
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
+
 function toSearchParams(query: AssetQuery): string {
   const params = new URLSearchParams();
   if (query.q) params.set('q', query.q);
@@ -56,18 +58,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function listAssets( query: AssetQuery, signal?: AbortSignal): Promise<AssetPage> {
   const queryString = toSearchParams(query);
-  const url = `/api/assets?${queryString}`;
+  const url = `${API_BASE_URL}/api/assets?${queryString}`;
 
   return request<AssetPage>(url, { signal });
 }
 
 export function getAsset(id: string, signal?: AbortSignal): Promise<Asset> {
-  return request<Asset>(`/api/assets/${id}`,{signal});
+  return request<Asset>(`${API_BASE_URL}/api/assets/${id}`,{signal});
 }
 
 export function getAssetsByIds(ids: string[]): Promise<{ items: Asset[]; missing: string[] }> {
   // Note: the endpoint rejects more than 25 ids per call.
-  return request(`/api/assets/batch?ids=${ids.join(',')}`);
+  return request(`${API_BASE_URL}/api/assets/batch?ids=${ids.join(',')}`);
 }
 
 export function updateAsset(
@@ -75,7 +77,7 @@ export function updateAsset(
   version: number,
   patch: Partial<Pick<Asset, 'name' | 'status' | 'tags'>>,
 ): Promise<Asset> {
-  return request<Asset>(`/api/assets/${id}`, {
+  return request<Asset>(`${API_BASE_URL}/api/assets/${id}`, {
     method: 'PATCH',
     body: JSON.stringify({ version, patch }),
   });
@@ -95,7 +97,7 @@ export async function bulkSetStatus(ids: string[], status: Asset['status']): Pro
       const results = await Promise.all(
         batch.map((chunk) => {
 
-          return request<BulkResult>("/api/assets/bulk-status", {
+          return request<BulkResult>(`${API_BASE_URL}/api/assets/bulk-status`, {
             method: "POST",
             body: JSON.stringify({
               ids: chunk,
@@ -117,4 +119,4 @@ export async function bulkSetStatus(ids: string[], status: Asset['status']): Pro
   }
 }
 
-export const thumbnailUrl = (id: string) => `/api/thumb/${id}.svg`;
+export const thumbnailUrl = (id: string) => `${API_BASE_URL}/api/thumb/${id}.svg`;
