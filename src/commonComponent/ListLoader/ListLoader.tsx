@@ -1,4 +1,4 @@
-import "./listLoader.scss";
+import "./ListLoader.scss";
 
 const ListLoader = () => {
   return (
