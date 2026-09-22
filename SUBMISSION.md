@@ -150,9 +150,7 @@ What was the actual bottleneck, and how did you find it?
 
 ## Accessibility
 
-- Keyboard model you implemented, in one paragraph.
-- How you tested it, including any screen reader.
-- Known gaps.
+- Added keyboard-accessible tabs for asset cards and support for opening the asset detail view using the Enter key. The remaining accessibility enhancements were scoped out due to time constraints.
 
 ---
 
